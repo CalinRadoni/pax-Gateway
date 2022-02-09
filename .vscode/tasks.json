@@ -3,9 +3,11 @@
     "linux": {
         "type": "shell",
         "options": {
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/SW",
             "env": {
-                "idf_py": "${env:HOME}/esp/esp-idf/tools/idf.py"
+                "idf_tools": "${env:HOME}/esp/esp-idf/tools",
+                "idf_python": "${env:HOME}/.espressif/python_env/idf4.0_py3.8_env/bin/python",
+                "PATH": "${env:HOME}/.espressif/tools/xtensa-esp32-elf/esp-2019r2-8.2.0/xtensa-esp32-elf/bin:${env:PATH}"
             }
         },
         "presentation": {
@@ -17,52 +19,78 @@
             "clear": false
         },
     },
-    "problemMatcher": {},
     "tasks": [
         {
             "label": "ESP-IDF Build",
-            "command": "$idf_py",
-            "args": [ "build" ],
-            "group": "build",
-            "problemMatcher": {
-                "base": "$gcc",
-                "fileLocation": ["relative", "${workspaceFolder}/SW"]
-            }
+            "type": "shell",
+            "command": "${idf_python} ${idf_tools}/idf.py build",
+            "problemMatcher": [
+                {
+                    "owner": "cpp",
+                    "fileLocation": ["relative", "${workspaceFolder}"],
+                    "pattern": {
+                        "regexp": "^\\.\\.(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                },
+                {
+                    "owner": "cpp",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^[^\\.](.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                }
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
         },
         {
             "label": "ESP-IDF Clean",
-            "command": "$idf_py",
-            "args": [ "clean" ]
+            "type": "shell",
+            "command": "${idf_python} ${idf_tools}/idf.py fullclean",
+            "problemMatcher": [
+                {
+                    "owner": "cpp",
+                    "fileLocation": ["relative", "${workspaceFolder}"],
+                    "pattern": {
+                        "regexp": "^\\.\\.(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                },
+                {
+                    "owner": "cpp",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "regexp": "^[^\\.](.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                }
+            ],
         },
         {
             "label": "ESP-IDF Flash",
-            "command": "$idf_py",
-            "args": [ "-p", "/dev/ttyUSB0", "flash" ],
-        },
-        {
-            "label": "ESP-IDF Monitor",
-            "command": "$idf_py",
-            "args": [ "-p", "/dev/ttyUSB0", "monitor" ],
-        },
-        {
-            "label": "ESP-IDF MenuConfig",
-            "command": "$idf_py",
-            "args": [ "menuconfig" ]
-        },
-        {
-            "label": "ESP-IDF Build partition table",
-            "command": "$idf_py",
-            "args": [ "partition_table" ]
-        },
-        {
-            "label": "ESP-IDF Flash partition table",
-            "command": "$idf_py",
-            "args": [ "partition_table-flash" ]
-        },
-        {
-            "label": "ESP-IDF Size informations",
-            "command": "$idf_py",
-            "args": [ "size-components" ]
+            "type": "shell",
+            "command": "${idf_python} ${idf_tools}/idf.py flash",
+            "problemMatcher": [],
         }
     ]
 }
