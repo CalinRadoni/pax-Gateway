@@ -1,6 +1,7 @@
 # ignore KiCad backup files
 *.bak
 *.kicad_pcb-bak
+fp-info-cache
 
 # ignore archives
 *.7z

@@ -6,10 +6,20 @@
 /HW/*.bak
 /HW/*.kicad_pcb-bak
 
-# ingnore esp-idf's sdkconfig files
-/SW/build/
+# ignore esp-idf's sdkconfig files
 /SW/sdkconfig
 /SW/sdkconfig.old
 
+# ignore the (old) software built for esp-idf
+/SW
+
+# ignore PlatformIO's build directory
+/.pio/
+
 # ignore Visual Studio Code's workspace files
 *.code-workspace
+
+# ignore auxiliary directories and files
+/.vscode/.browse.VC.db
+/notes/
+build/
