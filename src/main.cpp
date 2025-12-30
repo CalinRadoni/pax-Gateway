@@ -1,52 +1,49 @@
-#include <Arduino.h>
+#include "paxGW.h"
+#include "paxGWConfig.h"
 
-#include "SimpleWiFi.h"
-#include "credentials.h"
+paxGW_Board board;
+paxGW_Config config;
 
-SimpleWiFi simpleWiFi;
-
-const long gmtOffset = 7200;        // seconds
-const int daylightOffset = 3600;    // seconds
+uint32_t restartRequired = 0;
 
 void printLocalTime()
 {
     struct tm timeInfo;
     if (!getLocalTime(&timeInfo)) {
-        Serial.println(F("Failed to obtain time"));
-        delay(1000);
-        ESP.restart();
+        log_e("Failed to obtain time");
+        // restartRequired = 1000;
         return;
     }
     Serial.println(&timeInfo, "%Y.%B.%d %H:%M:%S");
-}
-
-void CheckTimes(void)
-{
-    struct tm timeInfo;
-    time_t now;
-    time(&now);
-    localtime_r(&now, &timeInfo);
+    log_i("%d.%02d.%02.d %02d:%02d:%02d",
+        1900 + timeInfo.tm_year, 1 + timeInfo.tm_mon, timeInfo.tm_mday,
+        timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
 }
 
 void setup()
 {
     Serial.begin(115200);
 
-    unsigned short cnt = credCnt;
-    for (unsigned short i = 0; i < cnt && i < CredentialCount; ++i) {
-        strncpy(simpleWiFi.credentials[i].SSID, SSID[i], 32); simpleWiFi.credentials[i].SSID[32] = 0;
-        strncpy(simpleWiFi.credentials[i].PASS, PASS[i], 64); simpleWiFi.credentials[i].PASS[64] = 0;
+    board.Initialize(&config);
+
+    if (config.srvNTP.length() > 0) {
+        configTime(config.gmtOffset, config.daylightOffset, config.srvNTP.c_str());
+    } else {
+        log_e("NTP synchronization is required for Telegram authentication !");
     }
-
-    simpleWiFi.Reconnect(true);
-
-    while (!simpleWiFi.IsConnected()) { delay(10); }
-
-    configTime(gmtOffset, daylightOffset, "pool.ntp.org");
     printLocalTime();
+
+    restartRequired = 0;
 }
 
 void loop()
 {
-    simpleWiFi.CheckConnection(true);
+    board.CheckConnection(true);
+    
+    // reset here if requested
+    if (restartRequired > 0) {
+        board.ResetBoard(restartRequired);
+    }
+
+    yield();
 }

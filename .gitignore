@@ -6,13 +6,6 @@
 /HW/*.bak
 /HW/*.kicad_pcb-bak
 
-# ignore esp-idf's sdkconfig files
-/SW/sdkconfig
-/SW/sdkconfig.old
-
-# ignore the (old) software built for esp-idf
-/SW
-
 # ignore PlatformIO's build directory
 /.pio/
 

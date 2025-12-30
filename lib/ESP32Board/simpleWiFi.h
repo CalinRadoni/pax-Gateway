@@ -11,21 +11,17 @@
 #error "This code is only for ESP32 or ESP8266 with Arduino framework !"
 #endif
 
-const unsigned short CredentialCount = 3;
+#include "boardConfig.h"
+
 const unsigned long ConnectionInitWaitTime = 5000; // 5 seconds
 
-class WiFiData {
-public:
-    char SSID[33];
-    char PASS[65];
-};
-
-class SimpleWiFi {
+class SimpleWiFi
+{
 public:
     SimpleWiFi(void);
     virtual ~SimpleWiFi();
 
-    WiFiData credentials[CredentialCount];
+    BoardConfig *config;
 
     unsigned long connectionInitWaitTime;
 
@@ -49,9 +45,9 @@ protected:
     bool connected;
 
 #if defined(ARDUINO_ARCH_ESP32)
-    wifi_event_id_t evidSC;
-    wifi_event_id_t evidGI;
-    wifi_event_id_t evidSD;
+    WiFiEventId_t evidSC;
+    WiFiEventId_t evidGI;
+    WiFiEventId_t evidSD;
 #endif
 #if defined(ARDUINO_ARCH_ESP8266)
     WiFiEventHandler wifiConnectHandler;
