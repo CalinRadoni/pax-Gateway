@@ -273,7 +273,7 @@ void RH_CC110::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }

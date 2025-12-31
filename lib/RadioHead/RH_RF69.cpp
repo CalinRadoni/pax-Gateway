@@ -206,7 +206,7 @@ void RH_RF69::handleInterrupt()
     {
 	// A transmitter message has been fully sent
 	setModeIdle(); // Clears FIFO
-	_txGood++;
+	_txGood = _txGood + 1;
 //	Serial.println("PACKETSENT");
     }
 
@@ -250,9 +250,14 @@ void RH_RF69::readFifo()
 	    _rxHeaderId    = _spi.transfer(0);
 	    _rxHeaderFlags = _spi.transfer(0);
 	    // And now the real payload
-	    for (_bufLen = 0; _bufLen < (payloadlen - RH_RF69_HEADER_LEN); _bufLen++)
-		_buf[_bufLen] = _spi.transfer(0);
-	    _rxGood++;
+	    for (_bufLen = 0; _bufLen < (payloadlen - RH_RF69_HEADER_LEN); ) {
+		    _buf[_bufLen] = _spi.transfer(0);
+            
+            // moved from the for loop because of:
+            // warning: using value of assignment with 'volatile'-qualified left operand is deprecated
+            _bufLen = _bufLen + 1;
+        }
+	    _rxGood = _rxGood + 1;
 	    _rxBufValid = true;
 	}
     }

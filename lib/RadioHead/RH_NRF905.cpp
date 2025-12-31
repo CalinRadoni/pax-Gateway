@@ -156,7 +156,7 @@ bool RH_NRF905::send(const uint8_t* data, uint8_t len)
     spiBurstWrite(RH_NRF905_REG_W_TX_PAYLOAD, _buf, len + RH_NRF905_HEADER_LEN);
     setModeTx();
     // Radio will return to Standby mode after transmission is complete
-    _txGood++;
+    _txGood = _txGood + 1;
     return true;
 }
 
@@ -217,7 +217,7 @@ void RH_NRF905::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_bufLen = len + RH_NRF905_HEADER_LEN; // _buf still includes the headers
 	_rxBufValid = true;
     }

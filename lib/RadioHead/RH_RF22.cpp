@@ -265,7 +265,7 @@ void RH_RF22::handleInterrupt()
     if (_lastInterruptFlags[0] & RH_RF22_IPKSENT)
     {
 //	Serial.println("IPKSENT");   
-	_txGood++; 
+	_txGood = _txGood + 1; 
 	// Transmission does not automatically clear the tx buffer.
 	// Could retransmit if we wanted
 	// RH_RF22 transitions automatically to Idle
@@ -283,7 +283,7 @@ void RH_RF22::handleInterrupt()
 	if (   len >  RH_RF22_MAX_MESSAGE_LEN
 	    || len < _bufLen)
 	{
-	    _rxBad++;
+	    _rxBad = _rxBad + 1;
 	    _mode = RHModeIdle;
 	    clearRxBuf();
 	    return; // Hmmm receiver buffer overflow. 
@@ -294,7 +294,7 @@ void RH_RF22::handleInterrupt()
 	_rxHeaderFrom = spiRead(RH_RF22_REG_48_RECEIVED_HEADER2);
 	_rxHeaderId = spiRead(RH_RF22_REG_49_RECEIVED_HEADER1);
 	_rxHeaderFlags = spiRead(RH_RF22_REG_4A_RECEIVED_HEADER0);
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_bufLen = len;
 	_mode = RHModeIdle;
 	_rxBufValid = true;
@@ -302,7 +302,7 @@ void RH_RF22::handleInterrupt()
     if (_lastInterruptFlags[0] & RH_RF22_ICRCERROR)
     {
 //	Serial.println("ICRCERR");  
-	_rxBad++;
+	_rxBad = _rxBad + 1;
 	clearRxBuf();
 	resetRxFifo();
 	_mode = RHModeIdle;

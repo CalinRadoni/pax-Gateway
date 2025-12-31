@@ -220,7 +220,7 @@ bool RH_NRF51::send(const uint8_t* data, uint8_t len)
     setModeTx();
 
     // Radio will return to Disabled state after transmission is complete
-    _txGood++;
+    _txGood = _txGood + 1;
     return true;
 }
 
@@ -277,7 +277,7 @@ void RH_NRF51::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }
@@ -345,7 +345,7 @@ bool RH_NRF51::available()
         if (!NRF_RADIO->CRCSTATUS)
 	{
 	    // Bad CRC, restart the radio	    
-	    _rxBad++;
+	    _rxBad = _rxBad + 1;
 	    setModeRx();
 	    return false;
 	}

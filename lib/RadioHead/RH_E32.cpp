@@ -183,7 +183,7 @@ void RH_E32::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }
@@ -227,7 +227,7 @@ bool RH_E32::available()
 	  {
 	    //	    Serial.println("Overrun");
 	    clearRxBuf();
-	    _rxBad++;
+	    _rxBad = _rxBad + 1;
 	    return false;
 	  }
 
@@ -272,7 +272,7 @@ bool RH_E32::send(const uint8_t* data, uint8_t len)
   
   _s->write(_buf, len + RH_E32_HEADER_LEN);
   setMode(RHModeTx);
-  _txGood++;
+  _txGood = _txGood + 1;
   // Aux will return high when the TX buffer is empty
   
   return true;

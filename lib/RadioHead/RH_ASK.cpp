@@ -957,7 +957,7 @@ void RH_ASK::validateRxBuf()
     if (crc != 0xf0b8) // CRC when buffer and expected CRC are CRC'd
     {
 	// Reject and drop the message
-	_rxBad++;
+	_rxBad = _rxBad + 1;
 	_rxBufValid = false;
 	return;
     }
@@ -971,7 +971,7 @@ void RH_ASK::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }
@@ -982,7 +982,7 @@ void RH_INTERRUPT_ATTR RH_ASK::receiveTimer()
 
     // Integrate each sample
     if (rxSample)
-	_rxIntegrator++;
+	    _rxIntegrator = _rxIntegrator + 1;
 
     if (rxSample != _rxLastSample)
     {
@@ -1016,7 +1016,8 @@ void RH_INTERRUPT_ATTR RH_ASK::receiveTimer()
 	{
 	    // We have the start symbol and now we are collecting message bits,
 	    // 6 per symbol, each which has to be decoded to 4 bits
-	    if (++_rxBitCount >= 12)
+        _rxBitCount = _rxBitCount + 1;
+	    if (_rxBitCount >= 12)
 	    {
 		// Have 12 bits of encoded message == 1 byte encoded
 		// Decode as 2 lots of 6 bits into 2 lots of 4 bits
@@ -1036,13 +1037,14 @@ void RH_INTERRUPT_ATTR RH_ASK::receiveTimer()
 		    _rxCount = this_byte;
 		    if (_rxCount < 7 || _rxCount > RH_ASK_MAX_PAYLOAD_LEN)
 		    {
-			// Stupid message length, drop the whole thing
-			_rxActive = false;
-			_rxBad++;
-                        return;
+                // Stupid message length, drop the whole thing
+                _rxActive = false;
+                _rxBad = _rxBad + 1;
+                return;
 		    }
 		}
-		_rxBuf[_rxBufLen++] = this_byte;
+		_rxBuf[_rxBufLen] = this_byte;
+        _rxBufLen = _rxBufLen + 1;
 
 		if (_rxBufLen >= _rxCount)
 		{
@@ -1076,7 +1078,7 @@ void RH_INTERRUPT_ATTR RH_ASK::transmitTimer()
 	if (_txIndex >= _txBufLen)
 	{
 	    setModeIdle();
-	    _txGood++;
+	    _txGood = _txGood + 1;
 	}
 	else
 	{
