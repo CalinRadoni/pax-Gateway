@@ -202,7 +202,7 @@ bool RH_NRF24::send(const uint8_t* data, uint8_t len)
     spiBurstWrite(RH_NRF24_COMMAND_W_TX_PAYLOAD_NOACK, _buf, len + RH_NRF24_HEADER_LEN);
     setModeTx();
     // Radio will return to Standby II mode after transmission is complete
-    _txGood++;
+    _txGood = _txGood + 1;
     return true;
 }
 
@@ -286,7 +286,7 @@ void RH_NRF24::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }

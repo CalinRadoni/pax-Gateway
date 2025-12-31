@@ -162,7 +162,7 @@ void RH_Serial::validateRxBuf()
 {
     if (_rxRecdFcs != _rxFcs)
     {
-	_rxBad++;
+	_rxBad = _rxBad + 1;
 	return;
     }
 
@@ -175,7 +175,7 @@ void RH_Serial::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }

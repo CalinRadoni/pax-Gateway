@@ -185,14 +185,14 @@ void RH_RF24::handleInterrupt()
 	    // CRC Error
 	    // Radio automatically went to _idleMode
 	    _mode = RHModeIdle;
-	    _rxBad++;
+	    _rxBad = _rxBad + 1;
 
 	    clearRxFifo();
 	    clearBuffer();
 	}
 	if (status[2] & RH_RF24_INT_STATUS_PACKET_SENT)
 	{
-	    _txGood++; 
+	    _txGood = _txGood + 1; 
 	    // Transmission does not automatically clear the tx buffer.
 	    // Could retransmit if we wanted
 	    // RH_RF24 configured to transition automatically to Idle after packet sent
@@ -243,7 +243,7 @@ void RH_RF24::validateRxBuf()
 	    _rxHeaderTo == RH_BROADCAST_ADDRESS)
 	{
 	    // Its for us
-	    _rxGood++;
+	    _rxGood = _rxGood + 1;
 	    _rxBufValid = true;
 	}
     }
@@ -388,7 +388,7 @@ void RH_RF24::readNextFragment()
     if ((_bufLen + fifo_len) > sizeof(_buf))
     {
 	// Overflow pending
-	_rxBad++;
+	_rxBad = _rxBad + 1;
 	setModeIdle();
 	clearRxFifo();
 	clearBuffer();

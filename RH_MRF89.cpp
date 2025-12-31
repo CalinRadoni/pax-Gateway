@@ -200,7 +200,7 @@ void RH_MRF89::handleInterrupt()
 //    Serial.println("T");
 	// TXDONE
 	// Transmit is complete
-	_txGood++;
+	_txGood = _txGood + 1;
 	setModeIdle();
     }
     else if (_mode == RHModeRx)
@@ -433,7 +433,7 @@ void RH_MRF89::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }

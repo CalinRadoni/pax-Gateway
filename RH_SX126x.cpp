@@ -209,7 +209,7 @@ void RH_SX126x::handleInterrupt()
     if (_mode == RHModeRx && (interrupts & (RH_SX126x_IRQ_CRC_ERR | RH_SX126x_IRQ_HEADER_ERR)))
     {
 	// CrcErr HeaderErr
-	_rxBad++;
+	_rxBad = _rxBad + 1;
         clearRxBuf();
 	// If there was an error, the SX126x is now in standby mode. Need to force RH state back to idle too
 	_mode = RHModeIdle;
@@ -248,7 +248,7 @@ void RH_SX126x::handleInterrupt()
     {
 	// TxDone
 	// Should now be in STDBY
-	_txGood++;
+	_txGood = _txGood + 1;
 	setModeIdle();
     }
     else if (_mode == RHModeCad && (interrupts & RH_SX126x_IRQ_CAD_DONE))
@@ -301,7 +301,7 @@ void RH_SX126x::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }

@@ -193,7 +193,7 @@ void RH_RF95::handleInterrupt()
 //    if (_mode == RHModeRx && irq_flags & (RH_RF95_RX_TIMEOUT | RH_RF95_PAYLOAD_CRC_ERROR))
     {
 //	Serial.println("E");
-	_rxBad++;
+	_rxBad = _rxBad + 1;
         clearRxBuf();
     }
     // It is possible to get RX_DONE and CRC_ERROR and VALID_HEADER all at once
@@ -236,7 +236,7 @@ void RH_RF95::handleInterrupt()
     else if (_mode == RHModeTx && irq_flags & RH_RF95_TX_DONE)
     {
 //	Serial.println("T");
-	_txGood++;
+	_txGood = _txGood + 1;
 	setModeIdle();
     }
     else if (_mode == RHModeCad && irq_flags & RH_RF95_CAD_DONE)
@@ -290,7 +290,7 @@ void RH_RF95::validateRxBuf()
 	_rxHeaderTo == _thisAddress ||
 	_rxHeaderTo == RH_BROADCAST_ADDRESS)
     {
-	_rxGood++;
+	_rxGood = _rxGood + 1;
 	_rxBufValid = true;
     }
 }
