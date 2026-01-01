@@ -302,7 +302,7 @@ public:
     /// \param[in] buf Location to copy the received message
     /// \param[in,out] len Pointer to the number of octets available in buf. The number will be reset to the actual number of octets copied.
     /// \return true if a valid message was copied to buf
-    RH_INTERRUPT_ATTR virtual bool    recv(uint8_t* buf, uint8_t* len);
+    virtual bool    recv(uint8_t* buf, uint8_t* len);
 
     /// Waits until any previous transmit packet is finished being transmitted with waitPacketSent().
     /// Then loads a message into the transmitter and starts the transmitter. Note that a message length
@@ -319,18 +319,18 @@ public:
 
     /// If current mode is Rx or Tx changes it to Idle. If the transmitter or receiver is running, 
     /// disables them.
-    RH_INTERRUPT_ATTR void           setModeIdle();
+    void            setModeIdle();
 
     /// If current mode is Tx or Idle, changes it to Rx. 
     /// Starts the receiver in the RF69.
-    RH_INTERRUPT_ATTR void           setModeRx();
+     void           setModeRx();
 
     /// If current mode is Rx or Idle, changes it to Rx. F
     /// Starts the transmitter in the RF69.
-    void           setModeTx();
+    void            setModeTx();
 
     /// dont call this it used by the interrupt handler
-    void RH_INTERRUPT_ATTR            handleTimerInterrupt();
+    void            handleTimerInterrupt();
 
     /// Returns the current speed in bits per second
     /// \return The current speed in bits per second
@@ -349,7 +349,7 @@ protected:
     void            timerSetup();
 
     /// Read the rxPin in a platform dependent way, taking into account whether it is inverted or not
-    RH_INTERRUPT_ATTR bool            readRx();
+    bool            readRx();
 
     /// Write the txPin in a platform dependent way
     void            writeTx(bool value);
@@ -358,7 +358,7 @@ protected:
     void            writePtt(bool value);
 
     /// Translates a 6 bit symbol to its 4 bit plaintext equivalent
-    RH_INTERRUPT_ATTR uint8_t         symbol_6to4(uint8_t symbol);
+    uint8_t         symbol_6to4(uint8_t symbol);
 
     /// The receiver handler function, called a 8 times the bit rate
     void            receiveTimer();
