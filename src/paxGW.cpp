@@ -103,8 +103,8 @@ bool paxGW_Board::Init_level2(void)
 
     // initialize board chips here
 
-#ifdef SS316_DISPLAY
-    IntializeDisplay();
+#ifdef SSD1306_DISPLAY
+    display.Initialize();
 #endif
 
 #ifdef Radio_RFM69
@@ -218,14 +218,6 @@ void paxGW_Board::SetLED(uint8_t idx, bool on)
         default: digitalWrite(PIN_LED_BUILTIN, on ? HIGH : LOW); break;
     }
 }
-
-#ifdef SS316_DISPLAY
-void paxGW_Board::DisplayTestPattern(void)
-{
-    ClearDisplay();
-    testdrawchar();
-}
-#endif
 
 #ifdef Radio_RFM69
 // https://www.airspayce.com/mikem/arduino/RadioHead/

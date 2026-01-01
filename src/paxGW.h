@@ -12,8 +12,8 @@
 #include <RH_RF69.h>
 #endif
 
-#ifdef SS316_DISPLAY
-#include "Display.h"
+#ifdef SSD1306_DISPLAY
+#include "Display_SSD1306.h"
 #endif
 
 /*
@@ -80,8 +80,8 @@ public:
      */
     void SetLED(uint8_t, bool);
 
-#ifdef SS316_DISPLAY
-    void DisplayTestPattern(void);
+#ifdef SSD1306_DISPLAY
+    Display_SSD1306 display;
 #endif
 
 #ifdef Radio_RFM69

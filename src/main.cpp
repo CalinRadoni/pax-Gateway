@@ -33,6 +33,11 @@ void setup()
     }
     printLocalTime();
 
+#ifdef SSD1306_DISPLAY
+    board.display.Clear();
+    board.display.TestDraw();
+#endif
+
     restartRequired = 0;
 }
 
