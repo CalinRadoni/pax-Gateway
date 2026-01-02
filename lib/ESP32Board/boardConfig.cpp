@@ -5,16 +5,43 @@
 
 const unsigned int BoardConfig::wifiCnt;
 
-const char* nvsNamespace = "RobotT1";
+const char* nvsNamespace = "ESP32Board";
+const char* nvsNsStatus = "nsStatus";
 
 BoardConfig::BoardConfig(void)
 {
-    //
+    nsStatus = 0;
 }
 
 BoardConfig::~BoardConfig()
 {
     //
+}
+
+bool BoardConfig::InitializeNVS(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        err = nvs_flash_erase();
+        if (err != ESP_OK) {
+            log_e("Failed to erase the default NVS partition [%d : %s]",
+                err,
+                esp_err_to_name(err));
+            return false;
+        }
+        log_i("NVS erased");
+        
+        err = nvs_flash_init();
+    }
+    if (err != ESP_OK) {
+        log_e("Failed to initialize the default NVS partition [%d : %s]",
+            err,
+            esp_err_to_name(err));
+        return false;
+    }
+
+    log_i("NVS initialized");
+    return true;
 }
 
 bool BoardConfig::EmptyNamespace(void)
@@ -26,9 +53,13 @@ bool BoardConfig::EmptyNamespace(void)
 
     bool res = prefs.clear();
     if (!res) {
-        log_e("Failed to empty %s namespace");
+        log_e("Failed to empty %s namespace", nvsNamespace);
+    }
+    else {
+        log_i("Namespace %s empty", nvsNamespace);
     }
     prefs.end();
+
     return res;
 }
 
@@ -41,6 +72,17 @@ bool BoardConfig::EraseDefaultNVS(void)
             esp_err_to_name(err));
         return false;
     }
+    log_i("NVS erased");
+
+    err = nvs_flash_init();
+    if (err != ESP_OK) {
+        log_e("Failed to initialize the default NVS partition [%d : %s]",
+            err,
+            esp_err_to_name(err));
+        return false;
+    }
+    log_i("NVS initialized");
+
     return true;
 }
 
@@ -79,8 +121,12 @@ bool BoardConfig::cPutString(const char *key, String val)
     return true;
 }
 
-void BoardConfig::Initialize(void)
+bool BoardConfig::Initialize(void)
 {
+    bool res = InitializeNVS();
+
+    res &= InitializeNamespace();
+
     for (unsigned int i = 0; i < wifiCnt; ++i) {
         wifi[i].Initialize();
     }
@@ -91,7 +137,35 @@ void BoardConfig::Initialize(void)
     daylightOffset = 0;
     srvNTP.clear();
 
-    CustomInit();
+    res &= CustomInit();
+
+    return res;
+}
+
+bool BoardConfig::InitializeNamespace(void)
+{
+    // Open (or create and then open if it does not yet exist) the namespace in RW mode
+    // Ignore the function return value, false may be because of an error on just because
+    // the namespace does not yet exists.
+    prefs.begin(nvsNamespace, false);
+    if (!prefs.isKey(nvsNsStatus)) {
+        prefs.putUChar(nvsNsStatus, (uint8_t)1);
+        prefs.end();
+    }
+
+    if (!prefs.begin(nvsNamespace, true)) {
+        log_e("Failed to open namespace [%s]", nvsNamespace);
+        return false;
+    }
+    nsStatus = prefs.getUChar(nvsNsStatus, 0);
+    prefs.end();
+
+    if (nsStatus == 0) {
+        log_e("Namespace status is 0, is namespace initialized ?");
+        return false;
+    }
+
+    return true;
 }
 
 bool BoardConfig::Load(void)
@@ -99,6 +173,18 @@ bool BoardConfig::Load(void)
     if (!prefs.begin(nvsNamespace, true)) {
         log_e("Failed to open namespace [%s]", nvsNamespace);
         return false;
+    }
+
+    // TODO nsStatus enum
+    nsStatus = prefs.getUChar(nvsNsStatus, 0);
+    switch (nsStatus) {
+        case 0:
+            log_e("Namespace status is 0, is namespace initialized ?");
+            break;
+        case 1:
+            // TODO: should set default values and set nsStatus to 2
+            break;
+        default: break;
     }
 
     for (unsigned int i = 0; i < wifiCnt; ++i) {
@@ -174,6 +260,6 @@ bool BoardConfig::Save(void)
     return false;
 }
 
-void BoardConfig::CustomInit(void) { /* */ }
+bool BoardConfig::CustomInit(void) { return true; }
 bool BoardConfig::CustomLoad(void) { return true; }
 bool BoardConfig::CustomSave(void) { return true; }

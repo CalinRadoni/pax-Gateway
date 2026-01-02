@@ -21,18 +21,23 @@ public:
     int  daylightOffset; // seconds
     String srvNTP;
 
-    void Initialize(void);
+    bool Initialize(void);
     bool Load(void);
     bool Save(void);
 
     bool EmptyNamespace(void);
     bool EraseDefaultNVS(void);
 
-    virtual void CustomInit(void);
+    virtual bool CustomInit(void);
     virtual bool CustomLoad(void);
     virtual bool CustomSave(void);
 
 protected:
+    bool InitializeNVS(void);
+    bool InitializeNamespace(void);
+
+    uint8_t nsStatus;
+
     Preferences prefs;
     bool cPutInt(const char *key, int32_t val);
     bool cPutUInt(const char *key, uint32_t val);

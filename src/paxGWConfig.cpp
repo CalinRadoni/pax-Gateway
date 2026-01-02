@@ -10,8 +10,9 @@ paxGW_Config::~paxGW_Config()
     //
 }
 
-void paxGW_Config::CustomInit(void)
+bool paxGW_Config::CustomInit(void)
 {
+    return true;
 }
 
 bool paxGW_Config::CustomLoad(void)

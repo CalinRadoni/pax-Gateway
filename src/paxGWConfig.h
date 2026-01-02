@@ -9,7 +9,7 @@ public:
     paxGW_Config(void);
     virtual ~paxGW_Config();
 
-    virtual void CustomInit(void);
+    virtual bool CustomInit(void);
     virtual bool CustomLoad(void);
     virtual bool CustomSave(void);
 };
