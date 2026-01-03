@@ -104,7 +104,7 @@ bool paxGW_Board::Init_level2(void)
     // initialize board chips here
 
 #ifdef SSD1306_DISPLAY
-    display.Initialize();
+    display.Initialize("pax-GW", 10, 20);
 #endif
 
 #ifdef Radio_RFM69
@@ -194,13 +194,13 @@ bool paxGW_Board::InitADC(void)
 uint16_t paxGW_Board::GetVIn(void)
 {
     uint16_t val = analogReadMilliVolts(PIN_VIN);
-    return val << 2;
+    return val << 1;
 }
 
 uint16_t paxGW_Board::GetVBatt(void)
 {
     uint16_t val = analogReadMilliVolts(PIN_VBATT);
-    return val << 2;
+    return val << 1;
 }
 
 bool paxGW_Board::IsCharging(void)
@@ -217,6 +217,38 @@ void paxGW_Board::SetLED(uint8_t idx, bool on)
         case 3: digitalWrite(PIN_LED3, on ? LOW : HIGH); break;
         default: digitalWrite(PIN_LED_BUILTIN, on ? HIGH : LOW); break;
     }
+}
+
+void paxGW_Board::ShowStatus(void)
+{
+#ifdef SSD1306_DISPLAY
+    display.Clear();
+    display.SetCursor(0, 0);
+    
+    display.SetTextSize(1);
+
+    char buf[128];
+    
+    if (WiFi.isConnected()) {
+        IPAddress ipa = WiFi.localIP();
+        snprintf(buf, 128, "%s %d dBm\n%d.%d.%d.%d",
+            WiFi.SSID().c_str(),
+            WiFi.RSSI(),
+            ipa[0], ipa[1], ipa[2], ipa[3]);
+        display.Println(buf);
+    }
+    else {
+        display.Println("WiFi not\nconnected");
+    }
+
+    snprintf(buf, 128, "%.2f %c %.2f",
+        GetVIn()/1000.0,
+        IsCharging() ? (char)0x1E : (char)0x1F,
+        GetVBatt()/1000.0);
+    display.Println(buf);
+
+    display.Show();
+#endif
 }
 
 #ifdef Radio_RFM69

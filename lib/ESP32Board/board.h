@@ -64,6 +64,8 @@ public:
 
     void PrintApplicationDescription(void);
 
+    void ScanI2CBus(void);
+
 protected:
     BoardConfig *boardConfig;
     SimpleWiFi simpleWiFi;

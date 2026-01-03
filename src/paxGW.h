@@ -84,6 +84,8 @@ public:
     Display_SSD1306 display;
 #endif
 
+    void ShowStatus(void);
+
 #ifdef Radio_RFM69
     RHReliableDatagram *radioManager;
 #endif

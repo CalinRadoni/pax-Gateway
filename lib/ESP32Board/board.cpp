@@ -109,3 +109,18 @@ void Board::PrintApplicationDescription(void)
         appDesc->date,
         appDesc->time);
 }
+
+void Board::ScanI2CBus(void)
+{
+    log_i("Scanning for I2C devices ...");
+    for (byte address = 0x01; address < 0x7f; ++address) {
+        Wire.beginTransmission(address);
+        byte error = Wire.endTransmission();
+        if (error == 0) {
+            log_i("I2C device found at address 0x%02X", address);
+        } else if (error != 2) {
+            log_i("Error %d at address 0x%02X", error, address);
+        }
+    }
+    log_i("Done scanning for I2C devices.");
+}

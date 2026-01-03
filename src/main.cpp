@@ -15,7 +15,7 @@ void printLocalTime()
         return;
     }
     Serial.println(&timeInfo, "%Y.%B.%d %H:%M:%S");
-    log_i("%d.%02d.%02.d %02d:%02d:%02d",
+    log_i("%d.%02d.%02d %02d:%02d:%02d",
         1900 + timeInfo.tm_year, 1 + timeInfo.tm_mon, timeInfo.tm_mday,
         timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
 }
@@ -34,8 +34,7 @@ void setup()
     printLocalTime();
 
 #ifdef SSD1306_DISPLAY
-    board.display.Clear();
-    board.display.TestDraw();
+    board.ShowStatus();
 #endif
 
     restartRequired = 0;
