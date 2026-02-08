@@ -1,0 +1,21 @@
+# Name, Type, SubType, Offset, Size, Flags
+nvs, data, nvs, 0x9000, 0x6000, 
+nvs_key, data, nvs_keys, 0xF000, 0x1000, encrypted
+app0, app, ota_0, 0x10000, 0x190000, 
+app1, app, ota_1, 0x1A0000, 0x190000, 
+otadata, data, ota, 0x330000, 0x2000, 
+fs, data, littlefs, 0x332000, 0xbe000, 
+coredump, data, coredump, 0x3F0000, 0x10000, 
+
+# Notes from ESP IDF docs:
+#
+# Partitions of type 'app' have to be placed at offsets aligned to 0x10000
+#
+# If Secure Boot V1 is enabled, then the partition of type app needs to have
+# size aligned to 0x10000 (64 KB) boundary.
+#
+# If Flash Encryption is enabled, 'app', 'data:ota', 'data:nvs_keys' will
+# be encrypted even if the 'encrypted' flag is not specified.
+#
+# Bootloader binary must fit in space before partition table. [...] no partition
+# has an offset lower than CONFIG_PARTITION_TABLE_OFFSET + 0x1000 = 0x9000

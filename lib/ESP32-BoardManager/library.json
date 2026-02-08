@@ -1,0 +1,44 @@
+{
+    "name": "ESP32-BoardManager",
+    "version": "2.3.2",
+    "description": "A library to manage projects where ESP32 is the main controller",
+    "keywords": [
+        "ESP32",
+        "board manager",
+        "wifi",
+        "web server",
+        "websockets"
+    ],
+    "license": "GPLv3",
+    "authors": [
+        {
+            "name": "Calin Radoni",
+            "url": "https://github.com/CalinRadoni"
+        }
+    ],
+    "repository":
+    {
+        "type": "git",
+        "url": "https://github.com/CalinRadoni"
+    },
+    "dependencies": [
+        {
+            "owner": "ESP32Async",
+            "name": "AsyncTCP",
+            "version": "^3.4.10"
+        },
+        {
+            "owner": "ESP32Async",
+            "name": "ESPAsyncWebServer",
+            "version": "^3.9.6"
+        },
+        {
+            "owner": "bblanchon",
+            "name": "ArduinoJson",
+            "version": "^7.4.2"
+        },
+        {
+            "name": "LittleFS"
+        }
+    ]
+}
