@@ -36,7 +36,10 @@ WiFiManager wifiManager;
 
 static const char *TAG = "WiFiManager";
 
-// FIXME These should be read from esp-idf implementation
+// FIXME These should be read from esp-idf implementation but they are not exposed in the public API.
+// A check is made in Initialize() to ensure that the default netifs have the expected ifkey, but this
+// is not ideal and may break if the esp-idf implementation changes.
+// TODO: better keep the handle to netif in the WiFiManager class and use it instead of looking for the default netifs by ifkey !
 const char *Default_STA_Key = "WIFI_STA_DEF";
 const char *Default_AP_Key = "WIFI_AP_DEF";
 
@@ -132,13 +135,24 @@ esp_err_t WiFiManager::Initialize(void)
         }
     }
 
-    // Create the default Wi-Fi station netif if not already exists
+    // Create the default WiFi station netif if not already exists
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_STA_Key);
     if (netif == nullptr) {
         netif = esp_netif_create_default_wifi_sta();
         if (netif == nullptr) {
             ESP_LOGE(TAG, "Failed to create default WiFi station!");
             return ESP_FAIL;
+        }
+    }
+
+    // Sanity check: ensure that the default WiFi station netif has the expected ifkey
+    const char *key = esp_netif_get_ifkey(netif);
+    if (key == nullptr) {
+        ESP_LOGE(TAG, "Failed to get ifkey for default WiFi station!");
+    }
+    else {
+        if (strcmp(key, Default_STA_Key) != 0) {
+            ESP_LOGE(TAG, "Default WiFi station created with unexpected ifkey %s", key);
         }
     }
 
@@ -532,7 +546,7 @@ esp_err_t WiFiManager::StartAP(void)
     esp_wifi_stop();
     wmState = WiFiManagerState::Disconnected;
 
-    // Create the default Wi-Fi station netif if not already exists
+    // Create the default WiFi AP netif if not already exists
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
     if (netif == nullptr) {
         netif = esp_netif_create_default_wifi_ap();
@@ -542,6 +556,17 @@ esp_err_t WiFiManager::StartAP(void)
         }
     }
 
+    // Sanity check: ensure that the default WiFi AP netif has the expected ifkey
+    const char *key = esp_netif_get_ifkey(netif);
+    if (key == nullptr) {
+        ESP_LOGE(TAG, "Failed to get ifkey for default WiFi AP!");
+    }
+    else {
+        if (strcmp(key, Default_AP_Key) != 0) {
+            ESP_LOGE(TAG, "Default WiFi AP created with unexpected ifkey %s", key);
+        }
+    }
+    
     wifi_config_t wifi_config = {0};
 
     size_t clen = config->deviceName.length();
@@ -660,4 +685,64 @@ esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
 
     ESP_LOGI(TAG, "Captive-Portal DHCPv4 Option set to %s",  buffer.data());
     return ESP_OK;
+}
+
+esp_ip4_addr_t WiFiManager::GetStationIP(void)
+{
+    esp_netif_ip_info_t ipInfo {};
+    
+    if (wmState != WiFiManagerState::Connected) {
+        return ipInfo.ip;
+    }
+
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_STA_Key);
+    if (netif == nullptr) {
+        ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
+        return ipInfo.ip;
+    }
+
+    esp_err_t err = esp_netif_get_ip_info(netif, &ipInfo);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
+        return ipInfo.ip;
+    }
+
+    return ipInfo.ip;
+}
+
+esp_ip4_addr_t WiFiManager::GetAPIP(void)
+{
+    esp_netif_ip_info_t ipInfo {};
+    
+    if (wmState != WiFiManagerState::APMode) {
+        return ipInfo.ip;
+    }
+
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
+    if (netif == nullptr) {
+        ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
+        return ipInfo.ip;
+    }
+
+    esp_err_t err = esp_netif_get_ip_info(netif, &ipInfo);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
+        return ipInfo.ip;
+    }
+
+    return ipInfo.ip;
+}
+
+uint8_t WiFiManager::GetAPClientCount(void)
+{
+    if (wmState != WiFiManagerState::APMode) {
+        return 0;
+    }
+
+    wifi_sta_list_t clients;
+    if (esp_wifi_ap_get_sta_list(&clients) != ESP_OK) {
+        return 0;
+    }
+
+    return (uint8_t)clients.num;
 }

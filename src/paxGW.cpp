@@ -78,22 +78,6 @@ bool paxGW_Board::Init_level0(void)
 
 bool paxGW_Board::Init_level1(void)
 {
-    // --------------------------------------------------------------------------------
-    // HACK Remove these when the WEB UI is working
-    // --------------------------------------------------------------------------------
-    for (unsigned short i = 0; i < boardConfig->wifiCnt && i < credCnt; ++i) {
-        boardConfig->wifi[i].SSID = SSID[i];
-        boardConfig->wifi[i].Pass = PASS[i];
-        boardConfig->wifi[i].useStaticIP = false;
-    }
-
-    boardConfig->gmtOffset = 7200;
-    boardConfig->daylightOffset = 3600;
-    boardConfig->srvNTP = "pool.ntp.org";
-    // --------------------------------------------------------------------------------
-    // HACK Remove these when the WEB UI is working
-    // --------------------------------------------------------------------------------
-
     return true;
 }
 
@@ -227,20 +211,68 @@ void paxGW_Board::ShowStatus(void)
     
     display.SetTextSize(1);
 
-    char buf[128];
-    
-    if (WiFi.isConnected()) {
-        IPAddress ipa = WiFi.localIP();
-        snprintf(buf, 128, "%s %d dBm\n%d.%d.%d.%d",
-            WiFi.SSID().c_str(),
-            WiFi.RSSI(),
-            ipa[0], ipa[1], ipa[2], ipa[3]);
+    const uint8_t buflen = 128;
+    char buf[buflen] {};
+    uint8_t len = 0;
+
+    WiFiManagerState wmState = wifiManager.GetState();
+
+    if (WiFiManagerState::Connected == wmState) {
+        wifi_ap_record_t apInfo;
+        if (esp_wifi_sta_get_ap_info(&apInfo) == ESP_OK) {
+            snprintf(buf, buflen, "%d dBm ", apInfo.rssi);
+
+            len = strnlen(buf, buflen);
+            if (strnlen((const char *)apInfo.ssid, 32) > 0) {
+                snprintf(buf + len, buflen - len, "%s", (const char *)apInfo.ssid);
+            }
+            else {
+                snprintf(buf + len, buflen - len, "%02X:%02X:%02X:%02X:%02X:%02X",
+                    apInfo.bssid[0], apInfo.bssid[1], apInfo.bssid[2],
+                    apInfo.bssid[3], apInfo.bssid[4], apInfo.bssid[5]);
+            }
+        }
+        else {
+            snprintf(buf, buflen, "WiFi connected");
+        }
+
+        len = strnlen(buf, buflen);
+        esp_ip4_addr_t ip = wifiManager.GetStationIP();
+        if (ip.addr != 0) {
+            snprintf(buf + len, buflen - len, "\n%d.%d.%d.%d",
+                ip.addr & 0xFF,
+                (ip.addr >> 8) & 0xFF,
+                (ip.addr >> 16) & 0xFF,
+                (ip.addr >> 24) & 0xFF);
+        }
+
+        display.Println(buf);
+    }
+    else if (WiFiManagerState::APMode == wmState) {
+        esp_ip4_addr_t ip = wifiManager.GetAPIP();
+        if (ip.addr != 0) {
+            snprintf(buf, buflen, "AP: %d.%d.%d.%d",
+                ip.addr & 0xFF,
+                (ip.addr >> 8) & 0xFF,
+                (ip.addr >> 16) & 0xFF,
+                (ip.addr >> 24) & 0xFF);
+        }
+        else {
+            snprintf(buf, buflen, "AP mode");
+        }
+
+        len = strnlen(buf, buflen);
+        uint8_t clientCount = wifiManager.GetAPClientCount();
+        snprintf(buf + len, buflen - len, "\n%d client%s",
+            clientCount,
+            clientCount != 1 ? "s" : "");
+
         display.Println(buf);
     }
     else {
         display.Println("WiFi not\nconnected");
     }
-
+    
     snprintf(buf, 128, "%.2f %c %.2f",
         GetVIn()/1000.0,
         IsCharging() ? (char)0x1E : (char)0x1F,

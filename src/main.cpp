@@ -27,9 +27,9 @@ void setup()
     board.Initialize(&config);
 
     if (config.srvNTP.length() > 0) {
-        configTime(config.gmtOffset, config.daylightOffset, config.srvNTP.c_str());
+        configTzTime(config.timeZone.c_str(), config.srvNTP.c_str());
     } else {
-        log_e("NTP synchronization is required for Telegram authentication !");
+        log_e("NTP synchronization not configured.");
     }
     printLocalTime();
 
