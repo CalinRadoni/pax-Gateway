@@ -45,9 +45,8 @@ public:
     WiFiManagerState GetState(void);
     uint8_t UsableConfigCount(void);
 
-    // TODO: return uint32_t
-    esp_ip4_addr_t GetStationIP(void);
-    esp_ip4_addr_t GetAPIP(void);
+    uint32_t GetStationIP(void);
+    uint32_t GetAPIP(void);
     uint8_t GetAPClientCount(void);
 
 private:

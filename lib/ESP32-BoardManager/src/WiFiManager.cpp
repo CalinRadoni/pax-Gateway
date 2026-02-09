@@ -687,50 +687,50 @@ esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
     return ESP_OK;
 }
 
-esp_ip4_addr_t WiFiManager::GetStationIP(void)
+uint32_t WiFiManager::GetStationIP(void)
 {
     esp_netif_ip_info_t ipInfo {};
     
     if (wmState != WiFiManagerState::Connected) {
-        return ipInfo.ip;
+        return 0;
     }
 
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_STA_Key);
     if (netif == nullptr) {
         ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
-        return ipInfo.ip;
+        return 0;
     }
 
     esp_err_t err = esp_netif_get_ip_info(netif, &ipInfo);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
-        return ipInfo.ip;
+        return 0;
     }
 
-    return ipInfo.ip;
+    return ipInfo.ip.addr;
 }
 
-esp_ip4_addr_t WiFiManager::GetAPIP(void)
+uint32_t WiFiManager::GetAPIP(void)
 {
     esp_netif_ip_info_t ipInfo {};
     
     if (wmState != WiFiManagerState::APMode) {
-        return ipInfo.ip;
+        return 0;
     }
 
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
     if (netif == nullptr) {
         ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
-        return ipInfo.ip;
+        return 0;
     }
 
     esp_err_t err = esp_netif_get_ip_info(netif, &ipInfo);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
-        return ipInfo.ip;
+        return 0;
     }
 
-    return ipInfo.ip;
+    return ipInfo.ip.addr;
 }
 
 uint8_t WiFiManager::GetAPClientCount(void)

@@ -214,6 +214,7 @@ void paxGW_Board::ShowStatus(void)
     const uint8_t buflen = 128;
     char buf[buflen] {};
     uint8_t len = 0;
+    esp_ip4_addr_t ip {};
 
     WiFiManagerState wmState = wifiManager.GetState();
 
@@ -237,25 +238,25 @@ void paxGW_Board::ShowStatus(void)
         }
 
         len = strnlen(buf, buflen);
-        esp_ip4_addr_t ip = wifiManager.GetStationIP();
+        ip.addr = wifiManager.GetStationIP();
         if (ip.addr != 0) {
-            snprintf(buf + len, buflen - len, "\n%d.%d.%d.%d",
-                ip.addr & 0xFF,
-                (ip.addr >> 8) & 0xFF,
-                (ip.addr >> 16) & 0xFF,
-                (ip.addr >> 24) & 0xFF);
+            char *conv = esp_ip4addr_ntoa(&ip, buf + len, buflen - len);
+            if (conv == nullptr) {
+                // buffer was too small to hold the IP string, keep what was written and restore null terminator
+                buf[buflen - 1] = '\0';
+            }
         }
 
         display.Println(buf);
     }
     else if (WiFiManagerState::APMode == wmState) {
-        esp_ip4_addr_t ip = wifiManager.GetAPIP();
+        ip.addr = wifiManager.GetAPIP();
         if (ip.addr != 0) {
-            snprintf(buf, buflen, "AP: %d.%d.%d.%d",
-                ip.addr & 0xFF,
-                (ip.addr >> 8) & 0xFF,
-                (ip.addr >> 16) & 0xFF,
-                (ip.addr >> 24) & 0xFF);
+            char *conv = esp_ip4addr_ntoa(&ip, buf + len, buflen - len);
+            if (conv == nullptr) {
+                // buffer was too small to hold the IP string, keep what was written and restore null terminator
+                buf[buflen - 1] = '\0';
+            }
         }
         else {
             snprintf(buf, buflen, "AP mode");
