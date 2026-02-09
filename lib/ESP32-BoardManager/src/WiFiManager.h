@@ -61,7 +61,9 @@ private:
     void DisplayFoundAPs(void);
     void UpdateWiFiConfigList(void);
 
+#ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
     esp_err_t SetCaptivePortalDHCPv4Option(void);
+#endif
 };
 
 extern WiFiManager wifiManager;

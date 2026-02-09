@@ -34,6 +34,11 @@ WiFiManager wifiManager;
  * but somwone have to read and test
  */
 
+#ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
+#pragma warning "Captive Portal DHCPv4 Option is enabled, but this is not a complete implementation of RFC 8908 and 8910 !"
+#pragma warning "Complete implementation is not feasible because of certificates. See CaptivePortal.md for details."
+#endif
+
 static const char *TAG = "WiFiManager";
 
 static StaticEventGroup_t evgStorage;
@@ -589,13 +594,14 @@ esp_err_t WiFiManager::StartAP(void)
 
     ESP_LOGI(TAG, "Access Point started.");
 
+    #ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
     /**
      * Much more then this is needed to implement the RFC 8908 and 8910 functionality !
      * This is just the IPv4 part of RFC 8910.
      * Complete implementation is not feasible because of certificates.
      * See CaptivePortal.md for details.
      */
-    /*
+    
     err = SetCaptivePortalDHCPv4Option();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ConfigureCaptivePortal failed: %d", err);
@@ -603,12 +609,13 @@ esp_err_t WiFiManager::StartAP(void)
         // do NOT exit
         // AP should work with or without these settings !
     }
-    */
+    #endif
 
     wmState = WiFiManagerState::APMode;
     return ESP_OK;
 }
 
+#ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
 esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
 {
     if (defaultApNetif == nullptr) {
@@ -654,6 +661,7 @@ esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
     ESP_LOGI(TAG, "Captive-Portal DHCPv4 Option set to %s",  buffer.data());
     return ESP_OK;
 }
+#endif
 
 uint32_t WiFiManager::GetStationIP(void)
 {
