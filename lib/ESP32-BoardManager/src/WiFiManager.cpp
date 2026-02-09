@@ -36,13 +36,6 @@ WiFiManager wifiManager;
 
 static const char *TAG = "WiFiManager";
 
-// FIXME These should be read from esp-idf implementation but they are not exposed in the public API.
-// A check is made in Initialize() to ensure that the default netifs have the expected ifkey, but this
-// is not ideal and may break if the esp-idf implementation changes.
-// TODO: better keep the handle to netif in the WiFiManager class and use it instead of looking for the default netifs by ifkey !
-const char *Default_STA_Key = "WIFI_STA_DEF";
-const char *Default_AP_Key = "WIFI_AP_DEF";
-
 static StaticEventGroup_t evgStorage;
 static EventGroupHandle_t wifiEventGroup;
 
@@ -136,23 +129,11 @@ esp_err_t WiFiManager::Initialize(void)
     }
 
     // Create the default WiFi station netif if not already exists
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_STA_Key);
-    if (netif == nullptr) {
-        netif = esp_netif_create_default_wifi_sta();
-        if (netif == nullptr) {
+    if (defaulStaNetif == nullptr) {
+        defaulStaNetif = esp_netif_create_default_wifi_sta();
+        if (defaulStaNetif == nullptr) {
             ESP_LOGE(TAG, "Failed to create default WiFi station!");
             return ESP_FAIL;
-        }
-    }
-
-    // Sanity check: ensure that the default WiFi station netif has the expected ifkey
-    const char *key = esp_netif_get_ifkey(netif);
-    if (key == nullptr) {
-        ESP_LOGE(TAG, "Failed to get ifkey for default WiFi station!");
-    }
-    else {
-        if (strcmp(key, Default_STA_Key) != 0) {
-            ESP_LOGE(TAG, "Default WiFi station created with unexpected ifkey %s", key);
         }
     }
 
@@ -547,23 +528,11 @@ esp_err_t WiFiManager::StartAP(void)
     wmState = WiFiManagerState::Disconnected;
 
     // Create the default WiFi AP netif if not already exists
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
-    if (netif == nullptr) {
-        netif = esp_netif_create_default_wifi_ap();
-        if (netif == nullptr) {
+    if (defaultApNetif == nullptr) {
+        defaultApNetif = esp_netif_create_default_wifi_ap();
+        if (defaultApNetif == nullptr) {
             ESP_LOGE(TAG, "Failed to create default WiFi AP!");
             return ESP_FAIL;
-        }
-    }
-
-    // Sanity check: ensure that the default WiFi AP netif has the expected ifkey
-    const char *key = esp_netif_get_ifkey(netif);
-    if (key == nullptr) {
-        ESP_LOGE(TAG, "Failed to get ifkey for default WiFi AP!");
-    }
-    else {
-        if (strcmp(key, Default_AP_Key) != 0) {
-            ESP_LOGE(TAG, "Default WiFi AP created with unexpected ifkey %s", key);
         }
     }
     
@@ -642,14 +611,13 @@ esp_err_t WiFiManager::StartAP(void)
 
 esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
 {
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
-    if (netif == nullptr) {
-        ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
+    if (defaultApNetif == nullptr) {
+        ESP_LOGE(TAG, "Default AP netif is not created!");
         return ESP_FAIL;
     }
 
     esp_netif_ip_info_t ip_info;
-    esp_err_t err = esp_netif_get_ip_info(netif, &ip_info);
+    esp_err_t err = esp_netif_get_ip_info(defaultApNetif, &ip_info);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
         return err;
@@ -663,21 +631,21 @@ esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
     size_t offset = strnlen(buffer.data(), buffer.size());
     inet_ntoa_r(ip_info.ip.addr, buffer.data() + offset, buffer.size() - offset);
 
-    err = esp_netif_dhcps_stop(netif);
+    err = esp_netif_dhcps_stop(defaultApNetif);
     if (err == ESP_OK || err == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
         ESP_LOGE(TAG, "esp_netif_dhcps_stop failed: %d", err);
         // do not exit, this error may not be critical, the option may be set in the next call
     }
 
     // set the Captive-Portal DHCPv4 Option (114) 
-    err = esp_netif_dhcps_option(netif, ESP_NETIF_OP_SET,
+    err = esp_netif_dhcps_option(defaultApNetif, ESP_NETIF_OP_SET,
             ESP_NETIF_CAPTIVEPORTAL_URI, buffer.data(), strnlen(buffer.data(), buffer.size()));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_dhcps_option %d failed: %d", ESP_NETIF_CAPTIVEPORTAL_URI, err);
         // do not exit, try to start the DHCP server back
     }
 
-    err = esp_netif_dhcps_start(netif);
+    err = esp_netif_dhcps_start(defaultApNetif);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_dhcps_start failed: %d", err);
         return err;
@@ -695,13 +663,12 @@ uint32_t WiFiManager::GetStationIP(void)
         return 0;
     }
 
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_STA_Key);
-    if (netif == nullptr) {
-        ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
+    if (defaulStaNetif == nullptr) {
+        ESP_LOGE(TAG, "Default station netif is not created!");
         return 0;
     }
 
-    esp_err_t err = esp_netif_get_ip_info(netif, &ipInfo);
+    esp_err_t err = esp_netif_get_ip_info(defaulStaNetif, &ipInfo);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
         return 0;
@@ -718,13 +685,12 @@ uint32_t WiFiManager::GetAPIP(void)
         return 0;
     }
 
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
-    if (netif == nullptr) {
-        ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
+    if (defaultApNetif == nullptr) {
+        ESP_LOGE(TAG, "Default AP netif is not created!");
         return 0;
     }
 
-    esp_err_t err = esp_netif_get_ip_info(netif, &ipInfo);
+    esp_err_t err = esp_netif_get_ip_info(defaultApNetif, &ipInfo);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
         return 0;

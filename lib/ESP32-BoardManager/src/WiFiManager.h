@@ -54,6 +54,9 @@ private:
 
     uint8_t configIndex {0};
 
+    esp_netif_t *defaulStaNetif {nullptr};
+    esp_netif_t *defaultApNetif {nullptr};
+
     std::vector<wifi_ap_record_t> aps;
     void DisplayFoundAPs(void);
     void UpdateWiFiConfigList(void);
