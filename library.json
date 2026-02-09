@@ -1,6 +1,6 @@
 {
     "name": "ESP32-BoardManager",
-    "version": "2.3.2",
+    "version": "2.5.1",
     "description": "A library to manage projects where ESP32 is the main controller",
     "keywords": [
         "ESP32",

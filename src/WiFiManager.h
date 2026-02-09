@@ -45,16 +45,25 @@ public:
     WiFiManagerState GetState(void);
     uint8_t UsableConfigCount(void);
 
+    uint32_t GetStationIP(void);
+    uint32_t GetAPIP(void);
+    uint8_t GetAPClientCount(void);
+
 private:
     WiFiManagerState wmState {WiFiManagerState::NotInitialized};
 
     uint8_t configIndex {0};
 
+    esp_netif_t *defaulStaNetif {nullptr};
+    esp_netif_t *defaultApNetif {nullptr};
+
     std::vector<wifi_ap_record_t> aps;
     void DisplayFoundAPs(void);
     void UpdateWiFiConfigList(void);
 
+#ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
     esp_err_t SetCaptivePortalDHCPv4Option(void);
+#endif
 };
 
 extern WiFiManager wifiManager;

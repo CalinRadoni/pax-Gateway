@@ -38,8 +38,8 @@ git commit -m "Repository initialization"
 In the new project's root folder, add a remote for the subtree then add the library as subtree. Assuming that you use a local copy of the library located in the `/data/Projects/ESP32-BoardManager`, use:
 
 ```sh
-git remote add -f ESP32-BoardManager /data/Projects/ESP32-BoardManager
-
+git remote add ESP32-BoardManager /data/Projects/ESP32-BoardManager
+git fetch ESP32-BoardManager
 git subtree add --prefix lib/ESP32-BoardManager ESP32-BoardManager main --squash
 ```
 
@@ -58,4 +58,19 @@ git fetch ESP32-BoardManager
 git subtree pull --prefix lib/ESP32-BoardManager \
     ESP32-BoardManager main --squash \
     -m "ESP32-BoardManager update"
+```
+
+### Update the library from another project
+
+```sh
+git subtree push --prefix lib/ESP32-BoardManager ESP32-BoardManager UpdateFromRemoteProject
+```
+
+the changes will go to the library's `UpdateFromRemoteProject` branch - this branch will be created if not exists.
+
+To see the changes:
+
+```sh
+git checkout UpdateFromRemoteProject
+git diff main
 ```

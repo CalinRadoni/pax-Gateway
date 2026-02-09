@@ -34,11 +34,12 @@ WiFiManager wifiManager;
  * but somwone have to read and test
  */
 
-static const char *TAG = "WiFiManager";
+#ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
+#pragma warning "Captive Portal DHCPv4 Option is enabled, but this is not a complete implementation of RFC 8908 and 8910 !"
+#pragma warning "Complete implementation is not feasible because of certificates. See CaptivePortal.md for details."
+#endif
 
-// FIXME These should be read from esp-idf implementation
-const char *Default_STA_Key = "WIFI_STA_DEF";
-const char *Default_AP_Key = "WIFI_AP_DEF";
+static const char *TAG = "WiFiManager";
 
 static StaticEventGroup_t evgStorage;
 static EventGroupHandle_t wifiEventGroup;
@@ -132,11 +133,10 @@ esp_err_t WiFiManager::Initialize(void)
         }
     }
 
-    // Create the default Wi-Fi station netif if not already exists
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_STA_Key);
-    if (netif == nullptr) {
-        netif = esp_netif_create_default_wifi_sta();
-        if (netif == nullptr) {
+    // Create the default WiFi station netif if not already exists
+    if (defaulStaNetif == nullptr) {
+        defaulStaNetif = esp_netif_create_default_wifi_sta();
+        if (defaulStaNetif == nullptr) {
             ESP_LOGE(TAG, "Failed to create default WiFi station!");
             return ESP_FAIL;
         }
@@ -532,16 +532,15 @@ esp_err_t WiFiManager::StartAP(void)
     esp_wifi_stop();
     wmState = WiFiManagerState::Disconnected;
 
-    // Create the default Wi-Fi station netif if not already exists
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
-    if (netif == nullptr) {
-        netif = esp_netif_create_default_wifi_ap();
-        if (netif == nullptr) {
+    // Create the default WiFi AP netif if not already exists
+    if (defaultApNetif == nullptr) {
+        defaultApNetif = esp_netif_create_default_wifi_ap();
+        if (defaultApNetif == nullptr) {
             ESP_LOGE(TAG, "Failed to create default WiFi AP!");
             return ESP_FAIL;
         }
     }
-
+    
     wifi_config_t wifi_config = {0};
 
     size_t clen = config->deviceName.length();
@@ -595,13 +594,14 @@ esp_err_t WiFiManager::StartAP(void)
 
     ESP_LOGI(TAG, "Access Point started.");
 
+    #ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
     /**
      * Much more then this is needed to implement the RFC 8908 and 8910 functionality !
      * This is just the IPv4 part of RFC 8910.
      * Complete implementation is not feasible because of certificates.
      * See CaptivePortal.md for details.
      */
-    /*
+    
     err = SetCaptivePortalDHCPv4Option();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ConfigureCaptivePortal failed: %d", err);
@@ -609,22 +609,22 @@ esp_err_t WiFiManager::StartAP(void)
         // do NOT exit
         // AP should work with or without these settings !
     }
-    */
+    #endif
 
     wmState = WiFiManagerState::APMode;
     return ESP_OK;
 }
 
+#ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
 esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
 {
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey(Default_AP_Key);
-    if (netif == nullptr) {
-        ESP_LOGE(TAG, "esp_netif_get_handle_from_ifkey failed!");
+    if (defaultApNetif == nullptr) {
+        ESP_LOGE(TAG, "Default AP netif is not created!");
         return ESP_FAIL;
     }
 
     esp_netif_ip_info_t ip_info;
-    esp_err_t err = esp_netif_get_ip_info(netif, &ip_info);
+    esp_err_t err = esp_netif_get_ip_info(defaultApNetif, &ip_info);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
         return err;
@@ -638,21 +638,21 @@ esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
     size_t offset = strnlen(buffer.data(), buffer.size());
     inet_ntoa_r(ip_info.ip.addr, buffer.data() + offset, buffer.size() - offset);
 
-    err = esp_netif_dhcps_stop(netif);
+    err = esp_netif_dhcps_stop(defaultApNetif);
     if (err == ESP_OK || err == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
         ESP_LOGE(TAG, "esp_netif_dhcps_stop failed: %d", err);
         // do not exit, this error may not be critical, the option may be set in the next call
     }
 
     // set the Captive-Portal DHCPv4 Option (114) 
-    err = esp_netif_dhcps_option(netif, ESP_NETIF_OP_SET,
+    err = esp_netif_dhcps_option(defaultApNetif, ESP_NETIF_OP_SET,
             ESP_NETIF_CAPTIVEPORTAL_URI, buffer.data(), strnlen(buffer.data(), buffer.size()));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_dhcps_option %d failed: %d", ESP_NETIF_CAPTIVEPORTAL_URI, err);
         // do not exit, try to start the DHCP server back
     }
 
-    err = esp_netif_dhcps_start(netif);
+    err = esp_netif_dhcps_start(defaultApNetif);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_dhcps_start failed: %d", err);
         return err;
@@ -660,4 +660,63 @@ esp_err_t WiFiManager::SetCaptivePortalDHCPv4Option(void)
 
     ESP_LOGI(TAG, "Captive-Portal DHCPv4 Option set to %s",  buffer.data());
     return ESP_OK;
+}
+#endif
+
+uint32_t WiFiManager::GetStationIP(void)
+{
+    esp_netif_ip_info_t ipInfo {};
+    
+    if (wmState != WiFiManagerState::Connected) {
+        return 0;
+    }
+
+    if (defaulStaNetif == nullptr) {
+        ESP_LOGE(TAG, "Default station netif is not created!");
+        return 0;
+    }
+
+    esp_err_t err = esp_netif_get_ip_info(defaulStaNetif, &ipInfo);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
+        return 0;
+    }
+
+    return ipInfo.ip.addr;
+}
+
+uint32_t WiFiManager::GetAPIP(void)
+{
+    esp_netif_ip_info_t ipInfo {};
+    
+    if (wmState != WiFiManagerState::APMode) {
+        return 0;
+    }
+
+    if (defaultApNetif == nullptr) {
+        ESP_LOGE(TAG, "Default AP netif is not created!");
+        return 0;
+    }
+
+    esp_err_t err = esp_netif_get_ip_info(defaultApNetif, &ipInfo);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_netif_get_ip_info failed: %d", err);
+        return 0;
+    }
+
+    return ipInfo.ip.addr;
+}
+
+uint8_t WiFiManager::GetAPClientCount(void)
+{
+    if (wmState != WiFiManagerState::APMode) {
+        return 0;
+    }
+
+    wifi_sta_list_t clients;
+    if (esp_wifi_ap_get_sta_list(&clients) != ESP_OK) {
+        return 0;
+    }
+
+    return (uint8_t)clients.num;
 }
