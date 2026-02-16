@@ -1,7 +1,8 @@
 #ifndef wifiConfig_H
 #define wifiConfig_H
 
-#include <Arduino.h>
+#include <cstddef>
+#include <cstdint>
 
 /**
  * Note: Modify msamGet and msamGet functions if you change this enum.
@@ -24,6 +25,9 @@ public:
 
     uint8_t ssid[32];
     uint8_t password[64];
+
+    size_t GetSSIDLen(void);
+    size_t GetPasswordLen(void);
 
     bool bssidSet {false};
     uint8_t bssid[6];
@@ -63,6 +67,10 @@ public:
     void Initialize(void);
 
     bool CheckData(bool strict = false);
+
+protected:
+    size_t GetByteStringSize(const uint8_t *data, size_t maxLen);
+
 };
 
 #endif

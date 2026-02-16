@@ -7,6 +7,7 @@
     #include "UpdateFromWeb.h"
 #endif
 #include "webSrv.h"
+#include "boardQueue.h"
 
 class Board
 {
@@ -68,12 +69,19 @@ public:
 
     void ScanI2CBus(void);
 
+    void CheckQueue(void);
+
+    virtual void CustomProcessBoardMessage(ClientContext *ctx, const JsonDocument& jdoc);
+
 protected:
     BoardConfig *boardConfig {nullptr};
     #ifdef USE_UpdateFromWeb
         UpdateFromWeb webUpdater;
     #endif
     WebSrv webSrv;
+
+    BoardQueue boardMessageQueue;  ///< Queue for board messages
+    void ProcessBoardMessage(const BoardMessage *msg);
 
     bool mDNS_started {false};
     esp_err_t Start_mDNS(void);

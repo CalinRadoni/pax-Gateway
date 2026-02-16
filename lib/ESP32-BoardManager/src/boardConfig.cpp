@@ -2,6 +2,7 @@
 
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "esp_netif.h"
 
 const char* defaultDeviceName = "ESP32Board";
 const char* defaultTimeZone = "UTC";
@@ -14,15 +15,15 @@ const char *NK_timeZone = "timeZone";
 const char *NK_srvNTP = "srvNTP";
 const char *NK_apPassword = "apPassword";
 
-const char *NK_WiFiNamespace = "WiFiCfg%d";
-const char *NK_ssid = "ssid";
-const char *NK_bssidSet = "bssidSet";
-const char *NK_bssid = "bssid";
-const char *NK_password = "password";
-const char *NK_useDHCP = "useDHCP";
-const char *NK_address = "address";
-const char *NK_mask = "mask";
-const char *NK_gateway = "gateway";
+const char *NK_WiFiNamespace = "WiFiCfg";
+const char *NK_ssid = "SSID";
+const char *NK_bssidSet = "BSSIDset";
+const char *NK_bssid = "BSSID";
+const char *NK_password = "Pass";
+const char *NK_useDHCP = "UseDHCP";
+const char *NK_address = "IPv4";
+const char *NK_mask = "Mask";
+const char *NK_gateway = "Gateway";
 const char *NK_srvDNS1 = "srvDNS1";
 const char *NK_srvDNS2 = "srvDNS2";
 const char *NK_minSearchAM = "minSearchAM";
@@ -78,7 +79,7 @@ bool BoardConfig::EraseNamespaces(void)
     }
 
     for (uint8_t i = 0; i < wifiCnt; ++i) {
-        snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(), NK_WiFiNamespace, wifi[i].saveIndex);
+        snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(), "%s%d", NK_WiFiNamespace, wifi[i].saveIndex);
         if (ESP_OK == nvs_open(reinterpret_cast<const char*>(buffer.data()), NVS_READWRITE, &nvh)) {
             if (ESP_OK == nvs_erase_all(nvh)) {
                 if (ESP_OK == nvs_commit(nvh)) {
@@ -115,15 +116,8 @@ bool BoardConfig::EraseDefaultNVS(void)
     return true;
 }
 
-bool BoardConfig::Initialize(void)
+bool BoardConfig::InitDataToDefaults(void)
 {
-    bool res = InitializeNVS();
-
-    for (unsigned int i = 0; i < wifiCnt; ++i) {
-        wifi[i].Initialize();
-        wifi[i].saveIndex = i;
-    }
-
     deviceName = defaultDeviceName;
     mDNSname.clear();
 
@@ -131,6 +125,25 @@ bool BoardConfig::Initialize(void)
     srvNTP = defaultTimeServer;
 
     apPassword.clear();
+
+    for (unsigned int i = 0; i < wifiCnt; ++i) {
+        wifi[i].Initialize();
+        wifi[i].saveIndex = i;
+    }
+
+    return CustomInitDataToDefaults();
+}
+
+bool BoardConfig::CustomInitDataToDefaults(void)
+{
+    return true;
+}
+
+bool BoardConfig::Initialize(void)
+{
+    bool res = InitializeNVS();
+
+    res &= InitDataToDefaults();
 
     res &= CustomInit();
 
@@ -156,7 +169,7 @@ bool BoardConfig::Load(void)
     if (!GetString(nvh, NK_apPassword, apPassword)) { ++cnt; }
 
     if (cnt > 0) {
-        log_d("%d errors when loading board configuration !", cnt);
+        log_d("%d errors when loading board configuration!", cnt);
         res= false;
     }
 
@@ -193,7 +206,7 @@ bool BoardConfig::Save(void)
     if (!SetString(nvh, NK_apPassword, apPassword)) { ++cnt; }
 
     if (cnt > 0) {
-        log_d("%d errors when saving board configuration !", cnt);
+        log_d("%d errors when saving board configuration!", cnt);
         res= false;
     }
 
@@ -222,13 +235,34 @@ bool BoardConfig::CustomLoad(void) { return true; }
 bool BoardConfig::CustomSave(void) { return true; }
 bool BoardConfig::CustomEraseNamespace(void) { return true; }
 
+void BoardConfig::BSSIDToStr(uint8_t *bssid)
+{
+    if (bssid == nullptr) {
+        buffer[0] = 0;
+        return;
+    }
+    snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(),
+            "%02X:%02X:%02X:%02X:%02X:%02X",
+            bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+}
+
+void BoardConfig::IPv4ToStr(uint32_t ip)
+{
+    if (ip == 0) {
+        buffer[0] = 0;
+        return;
+    }
+
+    esp_ip4_addr_t ip4 {};
+    ip4.addr = ip;
+    esp_ip4addr_ntoa(&ip4, reinterpret_cast<char*>(buffer.data()), buffer.size());
+}
+
 bool BoardConfig::BuildJsonDocument(void)
 {
     jdoc.clear();
 
     // https://arduinojson.org/v7/
-
-    // {"settings": [{"id": "deviceName", "val": "ESP32"}, {"id": "mDNS", "val": ""}, ...]}
 
     /**
      * Attention !
@@ -236,36 +270,39 @@ bool BoardConfig::BuildJsonDocument(void)
      *    .add<JsonObject>()
      * and many other return references.
      * Quote from official docs: "Don’t pass that by reference or pointer because it would be a reference
-     * to a reference, which is very confusing and can lead to dangling references if is reassigned !"
+     * to a reference, which is very confusing and can lead to dangling references if is reassigned!"
      */
 
     JsonObject jse = jdoc["settings"].to<JsonObject>();
-    jse["deviceName"] = deviceName;
-    jse["mDNSname"] = mDNSname;
-    jse["tz"] = timeZone;
-    jse["srvNTP"] = srvNTP;
-    jse["apPassword"] = apPassword;
-
-    // TODO Rebuild, is incomplete
+    jse[NK_deviceName] = deviceName;
+    jse[NK_mDNSname] = mDNSname;
+    jse[NK_timeZone] = timeZone;
+    jse[NK_srvNTP] = srvNTP;
+    jse[NK_apPassword] = apPassword;
 
     for (unsigned int i = 0; i < wifiCnt; ++i) {
-        IPAddress ip;
-        char ids[32];
+        JsonObject jsw = jse[NK_WiFiNamespace + std::to_string(i)].to<JsonObject>();
 
-        std::string_view cSSID(reinterpret_cast<char*>(wifi[i].ssid), 32);
-        snprintf(ids, sizeof(ids), "w%dSSID", i);
-        jse[ids] = cSSID;
+        std::string_view cSSID(reinterpret_cast<char*>(wifi[i].ssid), wifi[i].GetSSIDLen());
+        jsw[NK_ssid] = cSSID;
 
-        std::string_view cPass(reinterpret_cast<char*>(wifi[i].password), 64);
-        snprintf(ids, sizeof(ids), "w%dPass", i);
-        jse[ids] = cPass;
+        std::string_view cPass(reinterpret_cast<char*>(wifi[i].password), wifi[i].GetPasswordLen());
+        jsw[NK_password] = cPass;
 
-        snprintf(ids, sizeof(ids), "w%dUseDHCP", i); jse[ids] = wifi[i].useDHCP ? "true" : "false";
-        snprintf(ids, sizeof(ids), "w%dIPv4", i);    ip = wifi[i].address; jse[ids] = ip.toString();
-        snprintf(ids, sizeof(ids), "w%dMask", i);    ip = wifi[i].mask;    jse[ids] = ip.toString();
-        snprintf(ids, sizeof(ids), "w%dGateway", i); ip = wifi[i].gateway; jse[ids] = ip.toString();
-        snprintf(ids, sizeof(ids), "w%dsrvDNS1", i); ip = wifi[i].srvDNS1; jse[ids] = ip.toString();
-        snprintf(ids, sizeof(ids), "w%dsrvDNS2", i); ip = wifi[i].srvDNS2; jse[ids] = ip.toString();
+        if (wifi[i].bssidSet) {
+            BSSIDToStr(wifi[i].bssid);
+            jsw[NK_bssid] = reinterpret_cast<char*>(buffer.data());
+        }
+        else {
+            jsw[NK_bssid] = "";
+        }
+
+        jsw[NK_useDHCP] = wifi[i].useDHCP ? "true" : "false";
+        IPv4ToStr(wifi[i].address); jsw[NK_address] = reinterpret_cast<char*>(buffer.data());
+        IPv4ToStr(wifi[i].mask);    jsw[NK_mask] = reinterpret_cast<char*>(buffer.data());
+        IPv4ToStr(wifi[i].gateway); jsw[NK_gateway] = reinterpret_cast<char*>(buffer.data());
+        IPv4ToStr(wifi[i].srvDNS1); jsw[NK_srvDNS1] = reinterpret_cast<char*>(buffer.data());
+        IPv4ToStr(wifi[i].srvDNS2); jsw[NK_srvDNS2] = reinterpret_cast<char*>(buffer.data());
     }
 
     bool res = CustomBuildJsonDocument();
@@ -289,6 +326,105 @@ bool BoardConfig::CustomBuildJsonDocument(void)
     return true;
 }
 
+bool BoardConfig::SetFromJsonObject(const JsonObject& jse)
+{
+    if (jse.isNull())
+        return false;
+
+    InitDataToDefaults();
+
+    const char *cstr;
+    
+    cstr = jse[NK_deviceName].as<const char*>();
+    if (cstr != nullptr) {
+        deviceName = cstr;
+    }
+    cstr = jse[NK_mDNSname].as<const char*>();
+    if (cstr != nullptr) {
+        mDNSname = cstr;
+    }
+    cstr = jse[NK_timeZone].as<const char*>();
+    if (cstr != nullptr) {
+        timeZone = cstr;
+    }
+    cstr = jse[NK_srvNTP].as<const char*>();
+    if (cstr != nullptr) {
+        srvNTP = cstr;
+    }
+    cstr = jse[NK_apPassword].as<const char*>();
+    if (cstr != nullptr) {
+        apPassword = cstr;
+    }
+
+    for (unsigned int i = 0; i < wifiCnt; ++i) {
+        JsonObject jsw = jse[NK_WiFiNamespace + std::to_string(i)].as<JsonObject>();
+        if (!jsw.isNull()) {
+            esp_ip4_addr_t ipa {};
+
+            cstr = jsw[NK_ssid].as<const char*>();
+            if (cstr != nullptr) {
+                strncpy(reinterpret_cast<char*>(wifi[i].ssid), cstr, sizeof(wifi[i].ssid));
+            }
+            cstr = jsw[NK_password].as<const char*>();
+            if (cstr != nullptr) {
+                strncpy(reinterpret_cast<char*>(wifi[i].password), cstr, sizeof(wifi[i].password));
+            }
+
+            cstr = jsw[NK_bssid].as<const char*>();
+            if (cstr != nullptr) {
+                if (*cstr != '\0') {
+                    sscanf(cstr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                        &wifi[i].bssid[0], &wifi[i].bssid[1], &wifi[i].bssid[2],
+                        &wifi[i].bssid[3], &wifi[i].bssid[4], &wifi[i].bssid[5]);
+                    wifi[i].bssidSet = true;
+                }
+            }
+
+            cstr = jsw[NK_useDHCP].as<const char*>();
+            if (cstr != nullptr) {
+                wifi[i].useDHCP = (strcmp(cstr, "true") == 0);
+            }
+
+            cstr = jsw[NK_address].as<const char*>();
+            if (cstr != nullptr) {
+                if (*cstr != '\0') {
+                    wifi[i].address = esp_ip4addr_aton(cstr);
+                }
+            }
+            cstr = jsw[NK_mask].as<const char*>();
+            if (cstr != nullptr) {
+                if (*cstr != '\0') { 
+                    wifi[i].mask = esp_ip4addr_aton(cstr);
+                }
+            }
+            cstr = jsw[NK_gateway].as<const char*>();
+            if (cstr != nullptr) {
+                if (*cstr != '\0') {
+                    wifi[i].gateway = esp_ip4addr_aton(cstr);
+                }
+            }
+            cstr = jsw[NK_srvDNS1].as<const char*>();
+            if (cstr != nullptr) {
+                if (*cstr != '\0') {
+                    wifi[i].srvDNS1 = esp_ip4addr_aton(cstr);
+                }
+            }
+            cstr = jsw[NK_srvDNS2].as<const char*>();
+            if (cstr != nullptr) {
+                if (*cstr != '\0') {
+                    wifi[i].srvDNS2 = esp_ip4addr_aton(cstr);
+                }
+            }
+        }
+    }
+
+    return CustomSetFromJsonObject(jse);
+}
+
+bool BoardConfig::CustomSetFromJsonObject(const JsonObject& jse) {
+    return !jse.isNull();
+}
+
 bool BoardConfig::GetBool(nvs_handle_t nvsh, const char *key, bool *out)
 {
     uint8_t val = 0;
@@ -306,7 +442,7 @@ bool BoardConfig::GetU8(nvs_handle_t nvsh, const char *key, uint8_t *out)
     nvs_type_t dataType;
     esp_err_t err = nvs_find_key(nvsh, key, &dataType);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
-        log_d("Error: the key %s doesn't exist !", key);
+        log_d("Error: the key %s doesn't exist!", key);
         return false;
     }
     if (err != ESP_OK) {
@@ -335,7 +471,7 @@ bool BoardConfig::GetI8(nvs_handle_t nvsh, const char *key, int8_t *out)
     nvs_type_t dataType;
     esp_err_t err = nvs_find_key(nvsh, key, &dataType);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
-        log_d("Error: the key %s doesn't exist !", key);
+        log_d("Error: the key %s doesn't exist!", key);
         return false;
     }
     if (err != ESP_OK) {
@@ -364,7 +500,7 @@ bool BoardConfig::GetU32(nvs_handle_t nvsh, const char *key, uint32_t *out)
     nvs_type_t dataType;
     esp_err_t err = nvs_find_key(nvsh, key, &dataType);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
-        log_d("Error: the key %s doesn't exist !", key);
+        log_d("Error: the key %s doesn't exist!", key);
         return false;
     }
     if (err != ESP_OK) {
@@ -390,14 +526,14 @@ bool BoardConfig::GetBlob(nvs_handle_t nvsh, const char *key, void *data, size_t
 {
     if (key == nullptr) return false;
     if (length > buffer.size()) {
-        log_d("Error: Max allowed length is %d !", buffer.size());
+        log_d("Error: Max allowed length is %d bytes!", buffer.size());
         return false;
     }
 
     nvs_type_t dataType;
     esp_err_t err = nvs_find_key(nvsh, key, &dataType);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
-        log_d("Error: the key %s doesn't exist !", key);
+        log_d("Error: the key %s doesn't exist!", key);
         return false;
     }
     if (err != ESP_OK) {
@@ -432,7 +568,7 @@ bool BoardConfig::GetString(nvs_handle_t nvsh, const char *key, std::string& str
     nvs_type_t dataType;
     esp_err_t err = nvs_find_key(nvsh, key, &dataType);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
-        log_d("Error: the key %s doesn't exist !", key);
+        log_d("Error: the key %s doesn't exist!", key);
         return false;
     }
     if (err != ESP_OK) {
@@ -562,7 +698,7 @@ bool BoardConfig::SetBlob(nvs_handle_t nvsh, const char *key, void *data, size_t
 {
     if (key == nullptr) return false;
     if (length > buffer.size()) {
-        log_d("Error: Max allowed length is %d !", buffer.size());
+        log_d("Error: Max allowed length is %d bytes!", buffer.size());
         return false;
     }
 
@@ -590,7 +726,7 @@ bool BoardConfig::SetString(nvs_handle_t nvsh, const char *key, std::string& str
 {
     if (key == nullptr) return false;
     if (str.length() >= buffer.size()) {
-        log_d("Error: Max allowed length is %d !", buffer.size() - 1);
+        log_d("Error: Max allowed length is %d chars!", buffer.size() - 1);
         return false;
     }
 
@@ -634,7 +770,7 @@ bool BoardConfig::LoadWiFiConfig(WiFiConfig *cfg, uint8_t *failed)
 
     nvs_handle_t nwh;
 
-    snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(), NK_WiFiNamespace, cfg->saveIndex);
+    snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(), "%s%d", NK_WiFiNamespace, cfg->saveIndex);
 
     esp_err_t err = nvs_open(reinterpret_cast<const char*>(buffer.data()), NVS_READONLY, &nwh);
     if (err != ESP_OK) {
@@ -682,7 +818,7 @@ bool BoardConfig::SaveWiFiConfig(WiFiConfig *cfg, uint8_t *failed, bool skipComm
 
     nvs_handle_t nwh;
 
-    snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(), NK_WiFiNamespace, cfg->saveIndex);
+    snprintf(reinterpret_cast<char*>(buffer.data()), buffer.size(), "%s%d", NK_WiFiNamespace, cfg->saveIndex);
 
     esp_err_t err = nvs_open(reinterpret_cast<const char*>(buffer.data()), NVS_READWRITE, &nwh);
     if (err != ESP_OK) {

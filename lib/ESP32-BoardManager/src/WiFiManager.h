@@ -24,7 +24,7 @@ public:
     WiFiManager(void);
     virtual ~WiFiManager();
 
-    BoardConfig *config;
+    BoardConfig *config {nullptr};
 
     bool displayFoundAccessPoints {true};
     bool scanBeforeConnect {true};

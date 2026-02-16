@@ -1,5 +1,7 @@
 #include "wifiConfig.h"
 
+#include <cstring>
+
 WiFiConfig::WiFiConfig(void)
 {
     //
@@ -108,4 +110,29 @@ bool WiFiConfig::CheckData(bool strict)
     }
 
     return true;
+}
+
+size_t WiFiConfig::GetByteStringSize(const uint8_t *data, size_t maxLen)
+{
+    if (data == nullptr) { return 0; }
+    
+    const uint8_t *p   = data;
+    const uint8_t *end = data + maxLen;
+    while (p < end && *p != '\0') {
+        ++p;
+    }
+
+    if (p >= end) { return maxLen; }
+
+    return p - data;
+}
+
+size_t WiFiConfig::GetSSIDLen(void)
+{
+    return GetByteStringSize(ssid, 32);
+}
+
+size_t WiFiConfig::GetPasswordLen(void)
+{
+    return GetByteStringSize(password, 64);
 }

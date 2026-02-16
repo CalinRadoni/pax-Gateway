@@ -7,7 +7,7 @@
 
 Board::Board(void)
 {
-    //
+    // BoardQueue constructor creates the message queue automatically
 }
 
 Board::~Board()
@@ -15,6 +15,7 @@ Board::~Board()
     //
 }
 
+#ifdef ShowDirectoryListing
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
   Serial.printf("Listing directory: %s\r\n", dirname);
 
@@ -45,6 +46,7 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
     file = root.openNextFile();
   }
 }
+#endif
 
 unsigned int Board::Initialize(BoardConfig *cfgIn)
 {
@@ -63,7 +65,7 @@ unsigned int Board::Initialize(BoardConfig *cfgIn)
 
     Wire.setPins(SDA_pin, SCL_pin); // call Wire.begin() after this call or call it like Wire.begin(pinSDA, pinSCL)
     Wire.begin();
-   
+      
     wifiManager.config = boardConfig;
     wifiManager.Initialize();
 
@@ -86,6 +88,9 @@ unsigned int Board::Initialize(BoardConfig *cfgIn)
     }
     else {
         log_n("LittleFS initialized, %d free from %d", LittleFS.usedBytes(), LittleFS.totalBytes());
+        #ifdef ShowDirectoryListing
+        listDir(LittleFS, "/", 99);
+        #endif
     }
 
     wifiManager.Connect();
@@ -102,7 +107,7 @@ unsigned int Board::Initialize(BoardConfig *cfgIn)
     if (WiFiManagerState::Connected == wmState || WiFiManagerState::APMode == wmState) {
         log_n("Starting the web server");
         // "begin" the server only if connected or AP mode
-        webSrv.Begin();
+        webSrv.Begin(&boardMessageQueue);
     }
 
     if (!Init_level3()) { return 3; }
@@ -224,4 +229,109 @@ esp_err_t Board::Stop_mDNS(void)
     mDNS_started = false;
 
     return err;
+}
+
+void Board::CheckQueue(void)
+{
+    if (!boardMessageQueue.IsValid()) {
+        log_e("Board message queue is not valid!");
+        return;
+    }
+
+    BoardMessage msg;
+    while (boardMessageQueue.Receive(&msg, 0)) {
+        switch (msg.type) {
+            case BoardMessageType::WiFi_Connected:
+                break;
+            case BoardMessageType::WiFi_Disconnected:
+                break;
+            case BoardMessageType::WiFi_ScanComplete:
+                break;
+            case BoardMessageType::WiFi_ConnectionFailed:
+                break;
+
+            case BoardMessageType::WS_TextMessageReceived:
+                ProcessBoardMessage(&msg);
+                break;
+
+            case BoardMessageType::WS_BinaryMessageReceived:
+                break;
+
+            default:
+                log_w("Unknown message type received: %d", static_cast<uint8_t>(msg.type));
+                break;
+        }
+    }
+}
+
+void Board::ProcessBoardMessage(const BoardMessage *msg)
+{
+    if (msg == nullptr) { return; }
+    if (msg->data == nullptr) { return; }
+
+    ClientContext *ctx = reinterpret_cast<ClientContext*>(msg->data);
+    if(ctx->buffDataLen == 0) { return; }
+
+    JsonDocument jdoc;
+    DeserializationError err = deserializeJson(jdoc, ctx->buffData, ctx->buffDataLen);
+    if (err) {
+        log_e("Failed to parse JSON message: %s", err.c_str());
+        return;
+    }
+
+    const char *cmd = jdoc["cmd"];
+    if (cmd == nullptr) {
+        log_e("JSON message does not contain 'cmd' field");
+        return;
+    }
+
+    if (strcmp(cmd, "getSettings") == 0) {
+        if (boardConfig->BuildJsonDocument()) {
+            std::string str;
+            serializeJson(boardConfig->jdoc, str);
+            webSrv.SendWSMessage(ctx, str.c_str());
+        }
+        return;
+    }
+
+    if (strcmp(cmd, "setSettings") == 0) {
+        JsonObject jse = jdoc["data"];
+        if (jse.isNull()) {
+            log_e("JSON message does not contain the 'data' object");
+            return;
+        }
+
+        if (!boardConfig->SetFromJsonObject(jse)) {
+            log_e("Failed to update settings from JSON object");
+            return;
+        }
+
+        if (!boardConfig->Save()) {
+            log_e("Failed to save updated settings");
+            return;
+        }
+        
+        webSrv.SendWSMessage(ctx, "{\"status\":\"Settings saved\"}");
+        return;
+    }
+
+    CustomProcessBoardMessage(ctx, jdoc);
+}
+
+void Board::CustomProcessBoardMessage(ClientContext *ctx, const JsonDocument& jdoc)
+{
+    if (ctx == nullptr) { return; }
+
+    /**
+     * Prior to calling this function, the jdoc is already parsed and the "cmd" field is available.
+     * You can process your custom commands here.
+     * Example code follows.
+     */
+    const char *cmd = jdoc["cmd"];
+    if (strcmp(cmd, "customCommand") == 0) {
+        // process custom command
+
+        // (optional) send response
+        webSrv.SendWSMessage(ctx, "{\"status\":\"success\"}");
+    }
 }

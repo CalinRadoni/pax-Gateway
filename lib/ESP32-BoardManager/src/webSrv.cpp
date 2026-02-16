@@ -2,7 +2,12 @@
 
 WebSrv::WebSrv(void)
 {
-    wsDataReceived = false;
+    // Initialize context pool
+    for (size_t i = 0; i < WS_MAX_CLIENTS; i++) {
+        contextPool[i].clientID = 0;
+        contextPool[i].buffDataLen = 0;
+        contextPool[i].isActive = false;
+    }
 }
 
 WebSrv::~WebSrv()
@@ -29,16 +34,18 @@ void WebSrv::OnEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEv
 {
     switch(type) {
     case WS_EVT_CONNECT:
-        log_i("ws %s %u connect", server->url(), client->id());
+        GetClientContext(client->id());  // Create context for new client
+        log_d("ws %s %u connect", server->url(), client->id());
         break;
     case WS_EVT_DISCONNECT:
-        log_i("ws %s %u disconnect", server->url(), client->id());
+        RemoveClientContext(client->id());  // Clean up client context
+        log_d("ws %s %u disconnect", server->url(), client->id());
         break;
     case WS_EVT_ERROR:
         log_e("ws %s %u error %u: %s", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
         break;
     case WS_EVT_PONG:
-        log_i("ws %s %u pong[%u]: %s", server->url(), client->id(), len, (len > 0) ? (char*)data : "");
+        log_d("ws %s %u pong[%u]: %s", server->url(), client->id(), len, (len > 0) ? (char*)data : "");
         break;
     case WS_EVT_DATA:
         ProcessWSData(client->id(), (AwsFrameInfo*)arg, data, len);
@@ -54,47 +61,46 @@ void WebSrv::ProcessWSData(uint32_t clientID, AwsFrameInfo *info, uint8_t *data,
     if (data == nullptr) return;
     if (len == 0) return;
 
+    ClientContext *ctx = GetClientContext(clientID);
+    if (ctx == nullptr) {
+        log_e("Failed to get context for WS client");
+        return;
+    }
+
     // A long message was received in multiple packets (fragmented frame, not multiple frames):
     // - info->index, info->len and len were OK
     // - not OK: num is not increased and may be !=0
     // - not OK: final was always set
     // I have only seen long messages with a single, fragmented, frame and not with multiple frames
-    // TODO: Test again !!!
-    // TODO: Test again !!!
-    // TODO: Test again !!!
-
-    // TODO: This is a test implementation, buffData should be client dependent when receiveing fragmented messages
+    // TODO: test again with long messages !
 
     if (info->index == 0) {
         // beginning of data
-        buffData.clear();
-        // the client dependent buffer should be cleared / initialized
+        ctx->buffDataLen = 0;
     }
 
-    if (info->opcode == WS_TEXT) {
-        try {
-            buffData.append((const char*)data, len);
-        }
-        catch(const std::exception& e) {
-            log_e("buffData.append thrown %s", e.what());
-        }
-        catch(...) {
-            log_e("buffData.append thrown unknown exception");
-        }
-    } else {
-        char hex[3];
-        for (size_t i = 0; i < len; ++i) {
-            snprintf(hex, 3, "%02x", data[i]);
-            buffData.append(hex);
-        }
+    // Append data to context buffer
+    size_t spaceLeft = WS_CTX_BUFF_SIZE - ctx->buffDataLen;
+    if (len > spaceLeft) {
+        log_w("Buffer overflow prevented for client %u: needed %u, have %u", clientID, len, spaceLeft);
+        len = spaceLeft;  // Truncate to fit
+    }
+    if (len > 0) {
+        memcpy(&ctx->buffData[ctx->buffDataLen], data, len);
+        ctx->buffDataLen += len;
     }
 
     if ((info->index + len) == info->len) {
         // all data was received
         if (info->final) {
-            // the message can be processed
-            wsDataReceived = true;
-            buffData.shrink_to_fit();
+            if (messageQueue != nullptr) {
+                msg.type = info->opcode == WS_TEXT ?
+                    BoardMessageType::WS_TextMessageReceived : BoardMessageType::WS_BinaryMessageReceived;
+                msg.data = ctx;
+                if (!messageQueue->Send(&msg)) {
+                    log_e("Failed to send WS_*MessageReceived message to queue");
+                }
+            }
         }
     }
 }
@@ -105,8 +111,10 @@ void WebSrv::OnNotFound(AsyncWebServerRequest *request)
         request->send(404, "text/plain", "Not found");
 }
 
-void WebSrv::Begin(void)
+void WebSrv::Begin(BoardQueue *queue)
 {
+    messageQueue = queue;
+
     ws.onEvent(std::bind(&WebSrv::OnEvent, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
         std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
@@ -139,4 +147,66 @@ void WebSrv::End(void)
 void WebSrv::CleanupClients(void)
 {
     ws.cleanupClients();
+}
+
+ClientContext* WebSrv::GetClientContext(uint32_t clientID)
+{
+    // Search for existing context in pool
+    for (size_t i = 0; i < WS_MAX_CLIENTS; i++) {
+        if (contextPool[i].isActive && contextPool[i].clientID == clientID) {
+            return &contextPool[i];
+        }
+    }
+
+    // Find an available slot in the pool
+    for (size_t i = 0; i < WS_MAX_CLIENTS; i++) {
+        if (!contextPool[i].isActive) {
+            // Found available slot - initialize it
+            contextPool[i].clientID = clientID;
+            contextPool[i].buffDataLen = 0;
+            contextPool[i].isActive = true;
+            
+            log_d("Created context for client %u at pool index %u", clientID, i);
+            return &contextPool[i];
+        }
+    }
+
+    log_e("Max clients (%u) reached, cannot add client %u", WS_MAX_CLIENTS, clientID);
+    return nullptr;
+}
+
+void WebSrv::RemoveClientContext(uint32_t clientID)
+{
+    for (size_t i = 0; i < WS_MAX_CLIENTS; i++) {
+        if (contextPool[i].isActive && contextPool[i].clientID == clientID) {
+            // Mark pool entry as inactive
+            contextPool[i].isActive = false;
+            contextPool[i].buffDataLen = 0;
+            log_d("Removed context for client %u (pool index %u)", clientID, i);
+            return;
+        }
+    }
+}
+
+bool WebSrv::SendWSMessage(ClientContext* ctx, const char *message)
+{
+    if (ctx == nullptr) {
+        log_e("Cannot send message: client context is null");
+        return false;
+    }
+    if (!ctx->isActive) {
+        log_w("Cannot send message: client %u is not active", ctx->clientID);
+        return false;
+    }
+    AsyncWebSocketClient *client = ws.client(ctx->clientID);
+    if (client == nullptr) {
+        log_e("Cannot send message: client %u not found in WebSocket server", ctx->clientID);
+        return false;
+    }
+    return client->text(message);
+}
+
+bool WebSrv::BroadcastWSMessage(const char *message)
+{
+    return ws.textAll(message);
 }

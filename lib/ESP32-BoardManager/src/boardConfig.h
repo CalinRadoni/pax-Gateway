@@ -36,27 +36,32 @@ public:
     bool EraseNamespaces(void);
     bool EraseDefaultNVS(void);
 
-    // jdoc as a public member eases usage and reusage, requires less memory, ...
     // serialize with serializeJson(jdoc, put_a_string_here)
     // documentation for jdoc: https://arduinojson.org/v7/
     JsonDocument jdoc;
     bool BuildJsonDocument(void);
+    bool SetFromJsonObject(const JsonObject&);
 
 protected:
+    bool InitDataToDefaults(void);
     bool InitializeNVS(void);
-    bool InitializeNamespace(void);
 
+    virtual bool CustomInitDataToDefaults(void);
     virtual bool CustomInit(void);
     virtual bool CustomLoad(void);
     virtual bool CustomSave(void);
     virtual bool CustomEraseNamespace(void);
     virtual bool CustomBuildJsonDocument(void);
+    virtual bool CustomSetFromJsonObject(const JsonObject&);
 
     /**
      * To reduce heap fragmentation, this variable is used as temporary buffer
-     * by the GetBlob, SetBlob and SetString functions.
+     * by the BSSIDToStr, IPv4ToStr, GetBlob, SetBlob and SetString functions.
      */
     std::array<uint8_t, 128> buffer = {0};
+
+    void BSSIDToStr(uint8_t *bssid);
+    void IPv4ToStr(uint32_t ip);
 
     bool GetBool(nvs_handle_t nvsh, const char *key, bool *out);
     bool GetU8(nvs_handle_t nvsh, const char *key, uint8_t *out);

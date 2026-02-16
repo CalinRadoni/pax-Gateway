@@ -42,6 +42,8 @@ void setup()
 
 void loop()
 {
+    board.CheckQueue();
+
     board.CheckConnection(true);
     
     // reset here if requested

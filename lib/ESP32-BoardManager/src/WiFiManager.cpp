@@ -35,7 +35,7 @@ WiFiManager wifiManager;
  */
 
 #ifdef ADD_DHCPV4_CAPTIVE_PORTAL_OPTION
-#pragma warning "Captive Portal DHCPv4 Option is enabled, but this is not a complete implementation of RFC 8908 and 8910 !"
+#pragma warning "Captive Portal DHCPv4 Option is enabled, but this is not a complete implementation of RFC 8908 and 8910!"
 #pragma warning "Complete implementation is not feasible because of certificates. See CaptivePortal.md for details."
 #endif
 
@@ -256,7 +256,7 @@ esp_err_t WiFiManager::Scan(void)
                             aps.push_back(apr);
                         }
                         catch(...) {
-                            ESP_LOGE(TAG, "Failed to save ap record %d/%d !", i, apCnt);
+                            ESP_LOGE(TAG, "Failed to save ap record %d/%d!", i, apCnt);
                             err = ESP_ERR_NO_MEM;
                         }
                     }
@@ -265,7 +265,7 @@ esp_err_t WiFiManager::Scan(void)
         }
     }
     else {
-        ESP_LOGE(TAG, "xEventGroupWaitBits unexpected event !");
+        ESP_LOGE(TAG, "xEventGroupWaitBits unexpected event!");
     }
 
     // must be called if not all AP records where retrieved
@@ -355,7 +355,7 @@ bool WiFiManager::Connect(void)
 
     if (UsableConfigCount() == 0) {
         wmState = WiFiManagerState::Disconnected;
-        ESP_LOGW(TAG, "No usable WiFi configuration !");
+        ESP_LOGW(TAG, "No usable WiFi configuration!");
         return false;
     }
 
@@ -428,7 +428,7 @@ bool WiFiManager::Connect(void)
                     nextConfig = true;
                 }
                 else {        
-                    ESP_LOGI(TAG, "Connecting to %.32s", reinterpret_cast<const char *>(config->wifi[configIndex].ssid));
+                    ESP_LOGI(TAG, "Connecting to %.32s", reinterpret_cast<const char*>(config->wifi[configIndex].ssid));
                     wifiRetryCount = 0;
                     xEventGroupClearBits(wifiEventGroup, WiFiConnectedBit | WiFiConnFailedBit);
                     wmState = WiFiManagerState::Connecting;
@@ -449,16 +449,16 @@ bool WiFiManager::Connect(void)
                         
                         // Check which event actually happened
                         if (bits & WiFiConnectedBit) {
-                            ESP_LOGI(TAG, "connected to %.32s", reinterpret_cast<const char *>(config->wifi[configIndex].ssid));
+                            ESP_LOGI(TAG, "connected to %.32s", reinterpret_cast<const char*>(config->wifi[configIndex].ssid));
                             done = true;
                             wmState = WiFiManagerState::Connected;
                         }
                         else {
                             if (bits & WiFiConnFailedBit) {
-                                ESP_LOGI(TAG, "Failed to connect to %.32s", reinterpret_cast<const char *>(config->wifi[configIndex].ssid));
+                                ESP_LOGI(TAG, "Failed to connect to %.32s", reinterpret_cast<const char*>(config->wifi[configIndex].ssid));
                             }
                             else {
-                                ESP_LOGE(TAG, "xEventGroupWaitBits unexpected event !");
+                                ESP_LOGE(TAG, "xEventGroupWaitBits unexpected event!");
                             }
 
                             esp_wifi_stop();
@@ -552,7 +552,7 @@ esp_err_t WiFiManager::StartAP(void)
 
     clen = config->deviceName.length();
     if (clen > 32) { clen = 32; }
-    strncpy(reinterpret_cast<char *>(wifi_config.ap.ssid), config->deviceName.c_str(), clen);
+    strncpy(reinterpret_cast<char*>(wifi_config.ap.ssid), config->deviceName.c_str(), clen);
     wifi_config.ap.ssid_len = clen;
 
     clen = config->apPassword.length();
@@ -561,7 +561,7 @@ esp_err_t WiFiManager::StartAP(void)
         clen = 63;
     }
     if (clen > 0) {
-        strncpy(reinterpret_cast<char *>(wifi_config.ap.password), config->apPassword.c_str(), clen);
+        strncpy(reinterpret_cast<char*>(wifi_config.ap.password), config->apPassword.c_str(), clen);
     }
     wifi_config.ap.password[clen] = 0;
 
